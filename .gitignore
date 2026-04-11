@@ -47,6 +47,8 @@ data/json/snapshots/*.json
 !data/json/snapshots/.gitkeep
 
 # Config
+.env
+config.local.toml
 config.local.json
 
 # OS
@@ -57,3 +59,5 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+/.trae
+/web/frontend/node_modules

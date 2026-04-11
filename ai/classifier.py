@@ -124,14 +124,16 @@ class AIClassifier:
         # 从配置中读取分类描述
         category_descriptions = []
         for cat, info in self.categories.items():
+            # 使用name字段作为显示名称
+            display_name = info.get('name', cat)
             description = info.get('description', '')
             keywords = info.get('keywords', [])
             keywords_str = '、'.join(keywords[:3]) if keywords else ''
             
             if description:
-                category_descriptions.append(f"- {cat}：{description}")
+                category_descriptions.append(f"- {cat}（{display_name}）：{description}")
             elif keywords:
-                category_descriptions.append(f"- {cat}：{keywords_str}")
+                category_descriptions.append(f"- {cat}（{display_name}）：{keywords_str}")
         
         category_desc_str = '\n'.join(category_descriptions)
         
@@ -150,7 +152,7 @@ class AIClassifier:
             # 使用默认提示词
             return f"""请根据以下新闻的标题和描述，判断它属于哪个分类。
 
-可用分类：
+可用分类（请返回英文键名）：
 {categories_str}
 
 分类说明：
@@ -165,14 +167,14 @@ class AIClassifier:
 2. 如果新闻主要涉及一个分类，只返回一个分类
 3. 如果新闻确实涉及多个分类，最多返回2个分类，用逗号分隔
 4. 不要为了保险而选择多个分类，只选择真正相关的
-5. 如果新闻不属于任何分类，返回"其他"
-6. 只返回分类名称，不要添加任何解释或额外内容
+5. 如果新闻不属于任何分类，返回"未分类"
+6. **重要：只返回分类的英文键名（如tech、finance等），不要返回中文名称**
 
 示例：
-- 科技新闻：返回"科技"
-- 财经新闻：返回"财经"
-- 科技+财经：返回"科技,财经"或"财经,科技"
-- 社会新闻：返回"其他"
+- 科技新闻：返回"tech"
+- 财经新闻：返回"finance"
+- 科技+财经：返回"tech,finance"或"finance,tech"
+- 社会新闻：返回"未分类"
 """
 
     def _parse_result(self, result: str) -> Optional[List[str]]:

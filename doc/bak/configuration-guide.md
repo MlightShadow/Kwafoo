@@ -2,8 +2,8 @@
 
 ## 配置文件位置
 
-- **配置文件**: `config.json`
-- **配置模板**: `config.json.example`
+- **配置文件**: `config.toml`
+- **配置模板**: `config.toml.example`
 
 ## 配置文件格式
 
@@ -308,22 +308,20 @@
 
 ### 1. 如何启用自动功能？
 
-修改`config.json`中的以下配置：
-```json
-"scheduler": {
-  "auto_fetch": true,        // 启用自动抓取
-  "auto_ai_process": true     // 启用自动AI分析
-}
+修改`config.toml`中的以下配置：
+```toml
+[scheduler]
+auto_fetch = true        # 启用自动抓取
+auto_ai_process = true     # 启用自动AI分析
 ```
 
 ### 2. 如何调整抓取频率？
 
 修改`fetch_interval`和`ai_process_interval`的值（单位：秒）：
-```json
-"scheduler": {
-  "fetch_interval": 3600,      // 每1小时抓取一次
-  "ai_process_interval": 1800   // 每30分钟分析一次
-}
+```toml
+[scheduler]
+fetch_interval = 3600      # 每1小时抓取一次
+ai_process_interval = 1800   # 每30分钟分析一次
 ```
 
 ### 3. 为什么新闻没有AI摘要？

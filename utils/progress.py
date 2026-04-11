@@ -1,5 +1,6 @@
 import time
 import threading
+import asyncio
 from typing import Dict, Optional
 from datetime import datetime, timedelta
 from utils.logger import logger
@@ -9,11 +10,28 @@ class ProgressMonitor:
     _instance = None
     _tasks = {}
     _lock = threading.Lock()
+    _ws_enabled = False
+    _ws_broadcast_callback = None
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
+
+    @classmethod
+    def enable_websocket(cls, callback):
+        """启用WebSocket广播"""
+        cls._ws_enabled = True
+        cls._ws_broadcast_callback = callback
+        logger.info("WebSocket广播已启用")
+
+    async def _broadcast(self, message_type: str, data: dict):
+        """通过WebSocket广播消息"""
+        if self._ws_enabled and self._ws_broadcast_callback:
+            try:
+                await self._ws_broadcast_callback(message_type, data)
+            except Exception as e:
+                logger.error(f"WebSocket广播失败: {e}")
 
     def start_task(self, task_id: str, task_name: str, total_steps: int = 0):
         with self._lock:
@@ -29,7 +47,31 @@ class ProgressMonitor:
                 'estimated_end_time': None
             }
         logger.info(f"任务开始: {task_name} (ID: {task_id})")
+        
+        if self._ws_enabled and self._ws_broadcast_callback:
+            self._safe_broadcast('task_started', {
+                'task_id': task_id,
+                'task_name': task_name,
+                'total_steps': total_steps
+            })
+        
         return self._tasks[task_id]
+
+    def _safe_broadcast(self, message_type: str, data: dict):
+        """安全地广播消息，处理asyncio问题"""
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    self._broadcast(message_type, data),
+                    loop
+                )
+            else:
+                asyncio.run(self._broadcast(message_type, data))
+        except RuntimeError:
+            pass
+        except Exception as e:
+            logger.error(f"广播失败: {e}")
 
     def update_progress(self, task_id: str, progress: int, message: str = ''):
         with self._lock:
@@ -50,6 +92,14 @@ class ProgressMonitor:
                 task['estimated_end_time'] = datetime.now() + timedelta(seconds=estimated_remaining)
             
             logger.debug(f"任务进度: {task['task_name']} - {progress}% - {message}")
+            
+            if self._ws_enabled and self._ws_broadcast_callback:
+                self._safe_broadcast('progress_update', {
+                    'task_id': task_id,
+                    'task_name': task['task_name'],
+                    'progress': progress,
+                    'message': message
+                })
 
     def complete_task(self, task_id: str, success: bool = True, error_message: str = ''):
         with self._lock:
@@ -66,6 +116,14 @@ class ProgressMonitor:
                 logger.error(f"任务失败: {task['task_name']} - {error_message}")
             else:
                 logger.info(f"任务完成: {task['task_name']}")
+            
+            if self._ws_enabled and self._ws_broadcast_callback:
+                self._safe_broadcast('task_completed', {
+                    'task_id': task_id,
+                    'task_name': task['task_name'],
+                    'success': success,
+                    'error_message': error_message
+                })
 
     def get_task(self, task_id: str) -> Optional[Dict]:
         with self._lock:
@@ -74,7 +132,7 @@ class ProgressMonitor:
     def get_all_tasks(self) -> Dict:
         with self._lock:
             # 将 datetime 对象转换为字符串，以便 JSON 序列化
-            tasks_copy = {}
+            tasks_list = []
             for task_id, task in self._tasks.items():
                 task_copy = task.copy()
                 # 转换 datetime 对象为 ISO 格式字符串
@@ -82,8 +140,8 @@ class ProgressMonitor:
                     task_copy['start_time'] = task_copy['start_time'].isoformat()
                 if 'estimated_end_time' in task_copy and isinstance(task_copy['estimated_end_time'], datetime):
                     task_copy['estimated_end_time'] = task_copy['estimated_end_time'].isoformat()
-                tasks_copy[task_id] = task_copy
-            return tasks_copy
+                tasks_list.append(task_copy)
+            return tasks_list
 
     def cleanup_old_tasks(self, max_age_hours: int = 24):
         with self._lock:

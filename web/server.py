@@ -1,279 +1,119 @@
 import json
 import os
-from http.server import HTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
-from typing import Dict, Any, Optional
+import mimetypes
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
+from typing import Dict, Any
 import threading
-from datetime import datetime
 from utils.logger import logger
 from utils.helpers import config
 from utils.progress import progress_monitor
 from database import db
 from ai.processor import ai_news_processor
 from rag.engine import rag_engine
+from web.api import news_api, ai_api, chat_api, config_api, system_api
 
 
-class KwafooRequestHandler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, **kwargs):
-        self.api_routes = {
-            '/api/news': self.get_news,
-            '/api/news/category': self.get_news_by_category,
-            '/api/news/search': self.search_news,
-            '/api/news/stats': self.get_news_stats,
-            '/api/chat': self.chat,
-            '/api/progress': self.get_progress,
-            '/api/health': self.health_check,
-            '/api/config': self.get_config,
-            '/api/ai/status': self.get_ai_status,
-            '/api/ai/process': self.process_ai_news
-        }
-        self.post_routes = {
-            '/api/chat': self.chat,
-            '/api/fetch': self.manual_fetch,
-            '/api/ai/process': self.process_ai_news,
-            '/api/news/clear': self.clear_news
-        }
-        super().__init__(*args, directory='web')
+_SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+_DIST_DIR = os.path.join(_SERVER_DIR, 'dist')
 
+
+class KwafooRequestHandler(BaseHTTPRequestHandler):
+    # 定义API路由
+    api_routes = {
+        '/api/news': news_api.get_news,
+        '/api/news/category': news_api.get_news_by_category,
+        '/api/news/search': news_api.search_news,
+        '/api/news/stats': news_api.get_news_stats,
+        '/api/chat': chat_api.chat,
+        '/api/progress': system_api.get_progress,
+        '/api/health': system_api.health_check,
+        '/api/config': config_api.get_config,
+        '/api/ai/status': ai_api.get_ai_status,
+        '/api/ai/process': ai_api.process_ai_news
+    }
+    post_routes = {
+        '/api/chat': chat_api.chat,
+        '/api/fetch': system_api.manual_fetch,
+        '/api/ai/process': ai_api.process_ai_news,
+        '/api/news/clear': news_api.clear_news,
+        '/api/config': config_api.update_config
+    }
+    
     def do_GET(self):
         parsed_path = urlparse(self.path)
         path = parsed_path.path
         
+        # 处理根路径 - 直接读取并返回index.html
+        if path == '/':
+            index_path = os.path.join(_DIST_DIR, 'index.html')
+            if os.path.exists(index_path):
+                try:
+                    with open(index_path, 'rb') as f:
+                        content = f.read()
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_header('Content-Length', str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+                    return
+                except Exception as e:
+                    logger.error(f"Error serving index.html: {e}")
+                    self.send_error(500, str(e))
+                    return
+            else:
+                self.send_error(404, "index.html not found")
+                return
+        
+        # 处理API请求
         if path in self.api_routes:
-            self.api_routes[path]()
+            self.api_routes[path](self)
         elif path.startswith('/api/'):
             self.send_error(404, "API endpoint not found")
+        elif path.startswith('/api/images/'):
+            filename = path.replace('/api/images/', '')
+            system_api.get_image(self, filename)
         else:
-            super().do_GET()
+            # 处理静态文件
+            self.serve_static_file(path)
+
+    def serve_static_file(self, path):
+        # 移除前导斜杠
+        file_path = path.lstrip('/')
+        full_path = os.path.join(_DIST_DIR, file_path)
+        
+        # 安全检查：确保文件在dist目录内
+        if not os.path.commonpath([full_path, _DIST_DIR]).startswith(_DIST_DIR):
+            self.send_error(403, "Forbidden")
+            return
+        
+        if os.path.exists(full_path) and os.path.isfile(full_path):
+            try:
+                with open(full_path, 'rb') as f:
+                    content = f.read()
+                
+                # 猜测MIME类型
+                content_type = mimetypes.guess_type(full_path)[0] or 'application/octet-stream'
+                
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                logger.error(f"Error serving static file {full_path}: {e}")
+                self.send_error(500, str(e))
+        else:
+            self.send_error(404, "File not found")
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
         path = parsed_path.path
         
         if path in self.post_routes:
-            self.post_routes[path]()
+            self.post_routes[path](self)
         else:
             self.send_error(404, "API endpoint not found")
-
-    def get_news(self):
-        try:
-            today = datetime.now().strftime('%Y-%m-%d')
-            news_list = db.get_news_by_date(today)
-            
-            self._send_json_response({
-                'success': True,
-                'data': news_list,
-                'count': len(news_list)
-            })
-        except Exception as e:
-            logger.error(f"获取新闻失败: {e}")
-            self._send_error_response(str(e))
-
-    def get_news_by_category(self):
-        try:
-            params = parse_qs(urlparse(self.path).query)
-            category = params.get('category', [''])[0]
-            
-            if not category:
-                self._send_error_response("缺少category参数")
-                return
-            
-            news_list = db.get_news_by_category(category)
-            
-            self._send_json_response({
-                'success': True,
-                'data': news_list,
-                'count': len(news_list),
-                'category': category
-            })
-        except Exception as e:
-            logger.error(f"获取分类新闻失败: {e}")
-            self._send_error_response(str(e))
-
-    def search_news(self):
-        try:
-            params = parse_qs(urlparse(self.path).query)
-            query = params.get('q', [''])[0]
-            limit = int(params.get('limit', [10])[0])
-            
-            if not query:
-                self._send_error_response("缺少q参数")
-                return
-            
-            news_list = db.search_news(query, limit)
-            
-            self._send_json_response({
-                'success': True,
-                'data': news_list,
-                'count': len(news_list),
-                'query': query
-            })
-        except Exception as e:
-            logger.error(f"搜索新闻失败: {e}")
-            self._send_error_response(str(e))
-
-    def chat(self):
-        try:
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-            
-            message = data.get('message', '')
-            category = data.get('category', None)
-            session_id = data.get('session_id', None)
-            
-            if not message:
-                self._send_error_response("缺少message参数")
-                return
-            
-            if not session_id:
-                session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                db.create_chat_session(session_id)
-            
-            context = rag_engine.build_context(message, category)
-            
-            response = {
-                'success': True,
-                'message': message,
-                'context': context,
-                'session_id': session_id,
-                'response': f"基于以下新闻回答：\n{context}"
-            }
-            
-            db.add_chat_message(
-                session_id,
-                'user',
-                message
-            )
-            
-            db.add_chat_message(
-                session_id,
-                'assistant',
-                response['response']
-            )
-            
-            self._send_json_response(response)
-            
-        except Exception as e:
-            logger.error(f"对话失败: {e}")
-            self._send_error_response(str(e))
-
-    def get_progress(self):
-        try:
-            tasks = progress_monitor.get_all_tasks()
-            
-            self._send_json_response({
-                'success': True,
-                'data': tasks
-            })
-        except Exception as e:
-            logger.error(f"获取进度失败: {e}")
-            self._send_error_response(str(e))
-
-    def health_check(self):
-        self._send_json_response({
-            'success': True,
-            'status': 'healthy',
-            'timestamp': datetime.now().isoformat()
-        })
-
-    def get_config(self):
-        try:
-            categories = config.get('categories', {})
-            default_category = config.get('default_category', '未分类')
-            enable_ai_category = config.get('enable_ai_category', False)
-            
-            # 返回完整的分类配置（包含icon和color）
-            self._send_json_response({
-                'success': True,
-                'data': {
-                    'categories': categories,
-                    'default_category': default_category,
-                    'enable_ai_category': enable_ai_category
-                }
-            })
-        except Exception as e:
-            logger.error(f"获取配置失败: {e}")
-            self._send_error_response(str(e))
-
-    def get_ai_status(self):
-        try:
-            status = ai_news_processor.get_status()
-            
-            self._send_json_response({
-                'success': True,
-                'data': status
-            })
-        except Exception as e:
-            logger.error(f"获取AI状态失败: {e}")
-            self._send_error_response(str(e))
-
-    def get_news_stats(self):
-        try:
-            stats = db.get_news_stats()
-            
-            self._send_json_response({
-                'success': True,
-                'data': stats
-            })
-        except Exception as e:
-            logger.error(f"获取新闻统计失败: {e}")
-            self._send_error_response(str(e))
-
-    def clear_news(self):
-        try:
-            count = db.mark_all_news_deleted()
-            
-            self._send_json_response({
-                'success': True,
-                'message': f'已标记 {count} 条新闻为删除状态',
-                'count': count
-            })
-        except Exception as e:
-            logger.error(f"清空新闻失败: {e}")
-            self._send_error_response(str(e))
-
-    def process_ai_news(self):
-        try:
-            from scheduler.scheduler import scheduler
-            
-            # 调用异步方法，不阻塞主线程，手动执行不受配置限制
-            started = scheduler.process_ai_news_async(manual=True)
-            
-            if started:
-                self._send_json_response({
-                    'success': True,
-                    'message': 'AI分析任务已启动（手动执行，不受配置限制）'
-                })
-            else:
-                self._send_json_response({
-                    'success': False,
-                    'message': 'AI分析任务正在运行中，请稍后再试'
-                })
-        except Exception as e:
-            logger.error(f"启动AI分析任务失败: {e}")
-            self._send_error_response(str(e))
-
-    def manual_fetch(self):
-        try:
-            from scheduler.scheduler import scheduler
-            
-            # 调用异步方法，不阻塞主线程
-            started = scheduler.fetch_news_async()
-            
-            if started:
-                self._send_json_response({
-                    'success': True,
-                    'message': '抓取任务已启动（异步执行）'
-                })
-            else:
-                self._send_json_response({
-                    'success': False,
-                    'message': '抓取任务正在运行中，请稍后再试'
-                })
-        except Exception as e:
-            logger.error(f"启动抓取任务失败: {e}")
-            self._send_error_response(str(e))
 
     def _send_json_response(self, data: Dict[str, Any]):
         try:

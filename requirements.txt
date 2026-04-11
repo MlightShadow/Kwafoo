@@ -8,7 +8,9 @@ schedule>=1.2.0
 Pillow>=10.0.0
 
 # 配置文件处理
-jsoncomment>=0.4.2
+tomli>=2.0.0
+tomli-w>=1.0.0
+python-dotenv>=1.0.0
 
 # 数据库
 # SQLite是Python内置库，无需额外安装
@@ -18,8 +20,8 @@ openai>=1.0.0
 
 # HTTP服务器
 # 使用Python内置http.server，无需额外安装
-# 如需WebSocket，可选安装：
-# websockets>=12.0
+# WebSocket支持
+websockets>=12.0
 
 # 工具库
 python-dateutil>=2.8.2

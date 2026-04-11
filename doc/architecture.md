@@ -182,7 +182,7 @@ class ProgressMonitor:
 kwafoo/
 ├── README.md
 ├── requirements.txt
-├── config.json
+├── config.toml
 ├── main.py
 ├── doc/                    # 文档目录
 │   ├── architecture.md       # 系统架构设计

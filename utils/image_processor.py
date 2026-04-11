@@ -1,7 +1,10 @@
 import requests
 import io
+import os
+import hashlib
 from PIL import Image
 from typing import Optional, Tuple
+from datetime import datetime
 from utils.logger import logger
 from utils.helpers import config
 
@@ -19,8 +22,93 @@ class ImageProcessor:
         # 代理配置
         self.enable_proxy = config.get('network.enable_proxy', False)
         self.proxy_url = config.get('network.proxy_url', '')
+        
+        # 文件存储配置
+        self.storage_mode = config.get('image.storage_mode', 'filesystem')  # 'filesystem' or 'database'
+        self.storage_path = config.get('image.storage_path', 'data/images')
+        self.ensure_storage_directory()
     
-    def fetch_and_process_image(self, image_url: str) -> Optional[Tuple[str, bytes]]:
+    def ensure_storage_directory(self):
+        """确保图片存储目录存在"""
+        if self.storage_mode == 'filesystem':
+            os.makedirs(self.storage_path, exist_ok=True)
+            logger.info(f"图片存储目录: {self.storage_path}")
+    
+    def generate_filename(self, image_url: str) -> str:
+        """根据URL生成唯一的文件名"""
+        # 使用URL的哈希值作为文件名
+        url_hash = hashlib.md5(image_url.encode('utf-8')).hexdigest()
+        return f"{url_hash}.jpg"
+    
+    def get_image_path(self, image_url: str) -> str:
+        """获取图片的存储路径"""
+        filename = self.generate_filename(image_url)
+        return os.path.join(self.storage_path, filename)
+    
+    def get_image_url(self, image_url: str) -> str:
+        """获取图片的访问URL"""
+        if self.storage_mode == 'filesystem':
+            filename = self.generate_filename(image_url)
+            return f"/api/images/{filename}"
+        else:
+            # 数据库模式，返回原始URL或base64
+            return image_url
+    
+    def save_to_filesystem(self, image_data: bytes, image_url: str) -> str:
+        """
+        保存图片到文件系统
+        
+        Args:
+            image_data: 图片数据
+            image_url: 原始URL
+            
+        Returns:
+            保存后的文件路径
+        """
+        try:
+            filepath = self.get_image_path(image_url)
+            
+            # 如果文件已存在，直接返回
+            if os.path.exists(filepath):
+                logger.debug(f"图片已存在: {filepath}")
+                return filepath
+            
+            # 保存图片
+            with open(filepath, 'wb') as f:
+                f.write(image_data)
+            
+            logger.info(f"图片保存成功: {filepath}")
+            return filepath
+            
+        except Exception as e:
+            logger.error(f"保存图片失败: {e}")
+            raise
+    
+    def load_from_filesystem(self, filename: str) -> Optional[bytes]:
+        """
+        从文件系统加载图片
+        
+        Args:
+            filename: 文件名
+            
+        Returns:
+            图片数据
+        """
+        try:
+            filepath = os.path.join(self.storage_path, filename)
+            
+            if not os.path.exists(filepath):
+                logger.warning(f"图片文件不存在: {filepath}")
+                return None
+            
+            with open(filepath, 'rb') as f:
+                return f.read()
+                
+        except Exception as e:
+            logger.error(f"加载图片失败: {e}")
+            return None
+    
+    def fetch_and_process_image(self, image_url: str) -> Optional[Tuple[str, Optional[bytes]]]:
         """
         下载并处理图片
         
@@ -28,12 +116,19 @@ class ImageProcessor:
             image_url: 图片URL
             
         Returns:
-            (image_url, image_data) 或 None
+            (image_url, image_data) 或 (image_url, None)
         """
         if not self.enable_fetch or not image_url:
-            return None
+            return (image_url, None)
         
         try:
+            # 检查是否已存在
+            if self.storage_mode == 'filesystem':
+                filepath = self.get_image_path(image_url)
+                if os.path.exists(filepath):
+                    logger.debug(f"图片已缓存: {image_url}")
+                    return (self.get_image_url(image_url), None)
+            
             # 下载图片（根据配置决定是否使用代理）
             session = requests.Session()
             
@@ -59,13 +154,13 @@ class ImageProcessor:
             content_length = response.headers.get('content-length', 0)
             if content_length and int(content_length) > self.max_image_size:
                 logger.warning(f"图片过大，跳过: {image_url} ({content_length} bytes)")
-                return None
+                return (image_url, None)
             
             # 检查图片格式
             content_type = response.headers.get('content-type', '')
             if not self._is_supported_format(content_type):
                 logger.warning(f"不支持的图片格式: {content_type}")
-                return None
+                return (image_url, None)
             
             # 读取图片数据
             image_data = response.content
@@ -74,15 +169,22 @@ class ImageProcessor:
             compressed_data = self._compress_image(image_data)
             
             if compressed_data:
-                logger.info(f"图片处理成功: {image_url} -> {len(compressed_data)} bytes")
-                return (image_url, compressed_data)
+                # 根据存储模式处理
+                if self.storage_mode == 'filesystem':
+                    # 保存到文件系统
+                    self.save_to_filesystem(compressed_data, image_url)
+                    return (self.get_image_url(image_url), None)
+                else:
+                    # 返回压缩后的数据（用于数据库存储）
+                    logger.info(f"图片处理成功: {image_url} -> {len(compressed_data)} bytes")
+                    return (image_url, compressed_data)
             
         except requests.RequestException as e:
             logger.error(f"下载图片失败: {image_url} - {e}")
         except Exception as e:
             logger.error(f"处理图片失败: {image_url} - {e}")
         
-        return None
+        return (image_url, None)
     
     def _is_supported_format(self, content_type: str) -> bool:
         """检查图片格式是否支持"""
@@ -121,7 +223,7 @@ class ImageProcessor:
             img.thumbnail((width, height), Image.Resampling.LANCZOS)
             
             # 创建新的白色背景图像
-            background = Image.new('RGB', (width, height), (255, 255, 255))
+            background = Image.new('RGB', (width, height), (255,255,255))
             
             # 将图片居中粘贴到背景上
             x = (width - img.width) // 2
@@ -143,6 +245,38 @@ class ImageProcessor:
     def get_default_image(self) -> str:
         """获取默认图片URL"""
         return self.default_image
+    
+    def cleanup_old_images(self, max_age_days: int = 30):
+        """
+        清理旧的图片文件
+        
+        Args:
+            max_age_days: 最大保留天数
+        """
+        if self.storage_mode != 'filesystem':
+            return
+        
+        try:
+            current_time = datetime.now()
+            deleted_count = 0
+            
+            for filename in os.listdir(self.storage_path):
+                filepath = os.path.join(self.storage_path, filename)
+                
+                # 获取文件修改时间
+                file_mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
+                age_days = (current_time - file_mtime).days
+                
+                if age_days > max_age_days:
+                    os.remove(filepath)
+                    deleted_count += 1
+                    logger.debug(f"删除旧图片: {filename} ({age_days}天)")
+            
+            if deleted_count > 0:
+                logger.info(f"清理完成，删除了 {deleted_count} 个旧图片文件")
+                
+        except Exception as e:
+            logger.error(f"清理旧图片失败: {e}")
 
 
 # 创建全局实例

@@ -1,0 +1,112 @@
+[database]
+path = "data/kwafoo.db"
+
+[news_sources]
+
+[[news_sources.rss]]
+url = "https://36kr.com/feed"
+name = "36氪"
+enabled = true
+fetch_days = 2
+
+[[news_sources.api]]
+url = "https://api.example.com/news"
+api_key = "your_api_key"
+name = "Example API"
+category = "未分类"
+enabled = true
+
+[[news_sources.web]]
+url = "https://example.com/news"
+name = "Example Website"
+category = "未分类"
+enabled = true
+
+[news_sources.web.selectors]
+container = "div.news-list"
+title = "h2.news-title"
+content = "div.news-content"
+link = "a.news-link"
+time = "span.news-time"
+
+[categories.tech]
+name = "科技"
+keywords = ["人工智能", "科技", "互联网", "编程"]
+icon = "💻"
+color = "#3498db"
+
+[categories.finance]
+name = "财经"
+keywords = ["股票", "金融", "经济", "投资"]
+icon = "💰"
+color = "#27ae60"
+
+[categories.world]
+name = "国际"
+keywords = ["国际", "世界", "外交"]
+icon = "🌍"
+color = "#e74c3c"
+
+[categories.sports]
+name = "体育"
+keywords = ["体育", "足球", "篮球"]
+icon = "⚽"
+color = "#f39c12"
+
+[categories.entertainment]
+name = "娱乐"
+keywords = ["娱乐", "电影", "音乐"]
+icon = "🎬"
+color = "#9b59b6"
+
+default_category = "未分类"
+ai_summary_threshold = 140
+enable_ai_category = true
+enable_ai_summary = true
+
+[scheduler]
+fetch_interval = 1800
+ai_process_interval = 600
+auto_fetch = false
+auto_ai_process = false
+auto_ai_after_fetch = false
+
+[network]
+enable_proxy = false
+proxy_url = ""
+
+[image]
+enable_fetch = true
+
+[image.thumbnail_size]
+width = 256
+height = 256
+
+default_image = ""
+supported_formats = ["jpg", "jpeg", "png", "webp", "gif"]
+max_image_size = 5242880
+
+[ai]
+base_url = "http://localhost:1234"
+model = "nvidia/nemotron-3-nano-4b"
+api_key = ""
+max_tokens = 4096
+temperature = 0.7
+max_workers = 1
+batch_size = 1
+enable_summary = true
+
+[server]
+host = "0.0.0.0"
+port = 8000
+enable_websocket = true
+
+[rag]
+top_k = 5
+use_fts = true
+
+[logging]
+level = "INFO"
+file = "data/logs/kwafoo.log"
+max_size = 10485760
+backup_count = 5

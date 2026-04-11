@@ -1,5 +1,6 @@
 import sys
 import os
+import asyncio
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.logger import logger
@@ -8,6 +9,17 @@ from utils.progress import progress_monitor
 from database import db
 from scheduler.scheduler import scheduler
 from web.server import http_server
+from web.websocket import ws_server
+
+
+async def start_websocket():
+    """启动WebSocket服务器"""
+    try:
+        await ws_server.start()
+        # 启用进度监控器的WebSocket广播
+        progress_monitor.enable_websocket(ws_server.broadcast)
+    except Exception as e:
+        logger.error(f"WebSocket服务器启动失败: {e}")
 
 
 def main():
@@ -31,9 +43,14 @@ def main():
         logger.info("启动HTTP服务器...")
         http_server.start()
         
+        logger.info("启动WebSocket服务器...")
+        # 在新的事件循环中启动WebSocket服务器
+        asyncio.run(start_websocket())
+        
         logger.info("=" * 50)
         logger.info("系统启动完成")
         logger.info(f"HTTP服务器: http://{config.get('server.host', '0.0.0.0')}:{config.get('server.port', 8000)}")
+        logger.info(f"WebSocket服务器: ws://{config.get('server.host', '0.0.0.0')}:{config.get('server.port', 8000) + 1}")
         logger.info("=" * 50)
         
         try:
@@ -44,6 +61,10 @@ def main():
             logger.info("收到停止信号")
             scheduler.stop()
             http_server.stop()
+            
+            # 停止WebSocket服务器
+            asyncio.run(ws_server.stop())
+            
             db.close()
             logger.info("系统已停止")
             

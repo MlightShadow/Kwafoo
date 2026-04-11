@@ -483,8 +483,8 @@ class DatabaseManager:
             logger.error(f"新闻AI状态更新失败: {e}")
             try:
                 self._connection.rollback()
-            except:
-                pass
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
             return False
 
     def update_news_category(self, news_id: int, category: str) -> bool:
@@ -504,8 +504,8 @@ class DatabaseManager:
             logger.error(f"新闻分类更新失败: {e}")
             try:
                 self._connection.rollback()
-            except:
-                pass
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
             return False
 
     def update_news_summary(self, news_id: int, ai_summary: str) -> bool:
@@ -525,8 +525,8 @@ class DatabaseManager:
             logger.error(f"新闻摘要更新失败: {e}")
             try:
                 self._connection.rollback()
-            except:
-                pass
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
             return False
 
     def mark_all_news_deleted(self) -> int:
@@ -558,8 +558,8 @@ class DatabaseManager:
             logger.error(f"标记新闻删除状态失败: {e}")
             try:
                 self._connection.rollback()
-            except:
-                pass
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
             return 0
 
     def get_news_stats(self) -> Dict[str, int]:

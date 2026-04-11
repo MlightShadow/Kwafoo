@@ -146,12 +146,13 @@ class WebFetcher:
         if datetime_attr:
             try:
                 return datetime.fromisoformat(datetime_attr.replace('Z', '+00:00'))
-            except:
-                pass
+            except (ValueError, TypeError) as e:
+                logger.debug(f"datetime属性解析失败: {datetime_attr}, 错误: {e}")
         
         try:
             return datetime.fromisoformat(time_text)
-        except:
+        except (ValueError, TypeError) as e:
+            logger.debug(f"时间文本解析失败: {time_text}, 错误: {e}")
             return None
 
 

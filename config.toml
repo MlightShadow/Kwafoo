@@ -1,0 +1,83 @@
+[database]
+path = "data/kwafoo.db"
+
+[news_sources]
+[[news_sources.rss]]
+url = "https://36kr.com/feed"
+name = "36氪"
+enabled = true
+fetch_days = 2
+
+[[news_sources.api]]
+url = "https://api.example.com/news"
+api_key = "your_api_key"
+name = "Example API"
+category = "未分类"
+enabled = true
+
+[[news_sources.web]]
+url = "https://example.com/news"
+name = "Example Website"
+category = "未分类"
+enabled = true
+
+[news_sources.web.selectors]
+container = "div.news-list"
+title = "h2.news-title"
+content = "div.news-content"
+link = "a.news-link"
+time = "span.news-time"
+
+[scheduler]
+fetch_interval = 1800
+ai_process_interval = 600
+auto_fetch = false
+auto_ai_process = false
+auto_ai_after_fetch = false
+
+[network]
+enable_proxy = false
+proxy_url = ""
+
+[image]
+enable_fetch = true
+storage_mode = "filesystem"
+storage_path = "data/images"
+
+[ai]
+base_url = "http://localhost:1234"
+model = "nvidia/nemotron-3-nano-4b"
+api_key = ""
+max_tokens = 4096
+temperature = 0.7
+max_workers = 1
+batch_size = 1
+enable_summary = true
+
+[server]
+host = "0.0.0.0"
+port = 8000
+enable_websocket = true
+
+[rag]
+top_k = 5
+use_fts = true
+
+[logging]
+level = "INFO"
+file = "data/logs/kwafoo.log"
+max_size = 10485760
+backup_count = 5
+
+[image.thumbnail_size]
+width = 256
+height = 256
+default_image = ""
+supported_formats = [ "jpg", "jpeg", "png", "webp", "gif",]
+max_image_size = 5242880
+
+[categories.tech]
+name = "科技"
+keywords = [ "人工智能", "科技",]
+icon = "💻"
+color = "#3498db"

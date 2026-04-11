@@ -133,7 +133,8 @@ class APIFetcher:
                         return datetime.fromtimestamp(value)
                     elif isinstance(value, str):
                         return datetime.fromisoformat(value.replace('Z', '+00:00'))
-                except:
+                except (ValueError, TypeError, OSError) as e:
+                    logger.debug(f"时间戳解析失败: {value}, 错误: {e}")
                     continue
         
         return None
