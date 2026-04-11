@@ -1,0 +1,301 @@
+{
+  // ==================== 数据库配置 ====================
+  "database": {
+    // SQLite数据库文件路径
+    // 系统会自动创建数据库文件和目录
+    "path": "data/kwafoo.db"
+  },
+
+  // ==================== 新闻源配置 ====================
+  "news_sources": {
+    // RSS订阅源配置
+    // url: RSS订阅地址 (必需)
+    // name: 新闻源名称 (必需)
+    // enabled: 是否启用该新闻源 (可选，默认true)
+    // fetch_days: 抓取最近几天的新闻 (可选，默认2)
+    "rss": [
+      {
+        "url": "https://36kr.com/feed",
+        "name": "36氪",
+        "enabled": true,
+        "fetch_days": 2
+      }
+    ],
+
+    // API接口源配置
+    // url: API接口地址 (必需)
+    // api_key: API密钥 (可选)
+    // name: 新闻源名称 (必需)
+    // category: 新闻分类 (可选，默认"未分类")
+    // enabled: 是否启用该新闻源 (可选，默认true)
+    "api": [
+      {
+        "url": "https://api.example.com/news",
+        "api_key": "your_api_key",
+        "name": "Example API",
+        "category": "未分类",
+        "enabled": true
+      }
+    ],
+
+    // 网页爬虫源配置
+    // url: 网页地址 (必需)
+    // name: 新闻源名称 (必需)
+    // category: 新闻分类 (可选，默认"未分类")
+    // enabled: 是否启用该新闻源 (可选，默认true)
+    // selectors: CSS选择器配置 (必需)
+    "web": [
+      {
+        "url": "https://example.com/news",
+        "name": "Example Website",
+        "category": "未分类",
+        "enabled": true,
+        "selectors": {
+          "container": "div.news-list",
+          "title": "h2.news-title",
+          "content": "div.news-content",
+          "link": "a.news-link",
+          "time": "span.news-time"
+        }
+      }
+    ]
+  },
+
+  // ==================== 分类配置 ====================
+  // 定义分类和关键词的映射关系
+  // AI根据新闻标题和内容中的关键词自动分类
+  "categories": {
+    "科技": {
+      "keywords": ["人工智能", "科技", "互联网", "编程"],
+      "description": "涉及人工智能、科技产品、互联网、编程、软件、硬件等技术相关内容",
+      "icon": "💻",
+      "color": "#3498db"
+    },
+    "财经": {
+      "keywords": ["股票", "金融", "经济", "投资"],
+      "description": "涉及股票、金融、经济、投资、企业财报等财经相关内容",
+      "icon": "💰",
+      "color": "#27ae60"
+    },
+    "国际": {
+      "keywords": ["国际", "世界", "外交"],
+      "description": "涉及国际新闻、世界大事、外交关系等国际相关内容",
+      "icon": "🌍",
+      "color": "#e74c3c"
+    },
+    "体育": {
+      "keywords": ["体育", "足球", "篮球"],
+      "description": "涉及体育赛事、运动员、体育组织等体育相关内容",
+      "icon": "⚽",
+      "color": "#f39c12"
+    },
+    "娱乐": {
+      "keywords": ["娱乐", "电影", "音乐"],
+      "description": "涉及电影、音乐、明星、娱乐活动等娱乐相关内容",
+      "icon": "🎬",
+      "color": "#9b59b6"
+    },
+    "其他": {
+      "keywords": [],
+      "description": "不属于以上任何分类的新闻，如社会、民生、教育、健康等",
+      "icon": "📄",
+      "color": "#7f8c8d"
+    }
+  },
+
+  // 当新闻分类为空时显示的默认分类
+  "default_category": "未分类",
+
+  // AI摘要改写的描述长度阈值（字符数）
+  // 当描述长度超过此值时，AI会重写摘要
+  // 默认值: 140
+  "ai_summary_threshold": 140,
+
+  // 是否启用AI自动分类功能
+  // 需要AI服务正常运行
+  // 注意：此配置只影响自动执行，不影响手动调用
+  "enable_ai_category": false,
+
+  // AI分类提示词模板
+  // 支持以下占位符：
+  // {categories} - 所有分类名称列表
+  // {category_descriptions} - 分类描述列表
+  // {title} - 新闻标题
+  // {description} - 新闻描述
+  "ai_category_prompt": "请根据以下新闻的标题和描述，判断它属于哪个分类。\n\n可用分类：\n{categories}\n\n分类说明：\n{category_descriptions}\n\n标题：{title}\n\n描述：{description}\n\n要求：\n1. 仔细分析新闻的核心内容，选择最相关的1-2个分类\n2. 如果新闻主要涉及一个分类，只返回一个分类\n3. 如果新闻确实涉及多个分类，最多返回2个分类，用逗号分隔\n4. 不要为了保险而选择多个分类，只选择真正相关的\n5. 如果新闻不属于任何分类，返回\"其他\"\n6. 只返回分类名称，不要添加任何解释或额外内容\n\n示例：\n- 科技新闻：返回\"科技\"\n- 财经新闻：返回\"财经\"\n- 科技+财经：返回\"科技,财经\"或\"财经,科技\"\n- 社会新闻：返回\"其他\"",
+
+  // 是否启用AI摘要改写功能
+  // 需要AI服务正常运行
+  // 注意：此配置只影响自动执行，不影响手动调用
+  "enable_ai_summary": false,
+
+  // ==================== 调度器配置 ====================
+  "scheduler": {
+    // 自动抓取新闻的时间间隔 (秒)
+    // 默认值: 1800 (30分钟)
+    // 只有在auto_fetch为true时生效
+    "fetch_interval": 1800,
+
+    // 自动AI分析新闻的时间间隔 (秒)
+    // 默认值: 600 (10分钟)
+    // 只有在auto_ai_process为true时生效
+    "ai_process_interval": 600,
+
+    // 是否启用自动抓取新闻功能
+    // 默认值: false (关闭)
+    // 推荐测试阶段关闭，通过管理界面手动触发
+    // true: 系统按fetch_interval间隔自动抓取新闻
+    // false: 不自动抓取，需要手动在管理界面点击"手动抓取新闻"按钮
+    "auto_fetch": false,
+
+    // 是否启用自动AI分析新闻功能
+    // 默认值: false (关闭)
+    // 推荐测试阶段关闭，通过管理界面手动触发
+    // true: 系统按ai_process_interval间隔自动分析新闻
+    // false: 不自动分析，需要手动在管理界面点击"AI分析新闻"按钮
+    "auto_ai_process": false,
+
+    // 抓取完成后是否自动开始AI分析
+    // 默认值: false (关闭)
+    // true: 抓取完成后自动开始AI分析
+    // false: 抓取完成后不自动开始AI分析
+    "auto_ai_after_fetch": false
+  },
+
+  // ==================== 网络配置 ====================
+  "network": {
+    // 是否启用自定义代理
+    // 默认值: false (跟随系统网络设置）
+    // true: 使用自定义代理或系统环境变量代理
+    // false: 跟随系统网络设置（不设置任何代理）
+    "enable_proxy": false,
+    
+    // 代理服务器地址 (可选）
+    // 如果启用代理，可以使用自定义代理地址
+    // 格式: http://proxy.example.com:port 或 socks5://proxy.example.com:port
+    // 如果不设置，则使用系统环境变量中的代理
+    "proxy_url": ""
+  },
+
+  // ==================== 图片配置 ====================
+  "image": {
+    // 是否启用图片抓取
+    // 默认值: true
+    "enable_fetch": true,
+    
+    // 图片压缩尺寸 (宽x高)
+    // 默认值: 256x256
+    "thumbnail_size": {
+      "width": 256,
+      "height": 256
+    },
+    
+    // 默认图片URL (当新闻没有图片时使用)
+    // 默认值: 空字符串 (显示空白)
+    "default_image": "",
+    
+    // 支持的图片格式
+    // 默认值: jpg, png, webp
+    "supported_formats": ["jpg", "jpeg", "png", "webp", "gif"],
+    
+    // 最大图片大小 (字节)
+    // 默认值: 5MB
+    "max_image_size": 5242880
+  },
+
+  // ==================== AI配置 ====================
+  "ai": {
+    // AI服务地址 (必需)
+    // 支持OpenAI兼容的API接口
+    "base_url": "http://localhost:1234",
+
+    // 使用的模型名称 (必需)
+    // 例如: nvidia/nemotron-3-nano-4b, gpt-3.5-turbo, etc.
+    "model": "nvidia/nemotron-3-nano-4b",
+
+    // API密钥 (可选)
+    // 如果AI服务需要认证则填写
+    "api_key": "",
+
+    // 最大生成token数
+    // 默认值: 4096
+    "max_tokens": 4096,
+
+    // 温度参数，控制随机性
+    // 范围: 0-1，默认值: 0.7
+    // 值越大，输出越随机；值越小，输出越确定
+    "temperature": 0.7,
+
+    // 最大并发工作线程数
+    // 默认值: 1 (串行处理)
+    // 建议本地AI性能有限时保持为1
+    "max_workers": 1,
+
+    // 批处理大小
+    // 默认值: 1
+    // 每次处理多少条新闻
+    "batch_size": 1,
+
+    // 是否启用摘要生成
+    // 默认值: true
+    "enable_summary": true
+  },
+
+  // ==================== 服务器配置 ====================
+  "server": {
+    // 服务器监听地址
+    // 默认值: 0.0.0.0 (表示所有接口)
+    // 如果只想本地访问，可以改为 127.0.0.1
+    "host": "0.0.0.0",
+
+    // 服务器端口
+    // 默认值: 8000
+    // 如果端口被占用，可以修改为其他端口
+    "port": 8000,
+
+    // 是否启用WebSocket
+    // 默认值: true
+    // WebSocket用于实时推送任务进度
+    "enable_websocket": true
+  },
+
+  // ==================== JSON配置 ====================
+  "json": {
+    // 当前JSON输出路径
+    "output_path": "data/json/current.json",
+
+    // 快照JSON存储路径
+    "snapshot_path": "data/json/snapshots/"
+  },
+
+  // ==================== RAG配置 ====================
+  "rag": {
+    // 检索返回的相关新闻数量
+    // 默认值: 5
+    "top_k": 5,
+
+    // 是否使用全文搜索
+    // 默认值: true
+    "use_fts": true
+  },
+
+  // ==================== 日志配置 ====================
+  "logging": {
+    // 日志级别
+    // 可选值: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    // 默认值: INFO
+    "level": "INFO",
+
+    // 日志文件路径
+    "file": "data/logs/kwafoo.log",
+
+    // 单个日志文件最大大小 (字节)
+    // 默认值: 10485760 (100MB)
+    "max_size": 10485760,
+
+    // 保留的日志文件数量
+    // 默认值: 5
+    // 超过数量后会删除最旧的日志文件
+    "backup_count": 5
+  }
+}
