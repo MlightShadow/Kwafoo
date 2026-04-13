@@ -104,9 +104,12 @@ class NewsAPI:
         标记新闻为已读
         """
         try:
-            from urllib.parse import parse_qs, urlparse
-            params = parse_qs(urlparse(handler.path).query)
-            news_id = int(params.get('news_id', ['0'])[0])
+            import json
+            content_length = int(handler.headers['Content-Length'])
+            post_data = handler.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            news_id = data.get('news_id')
 
             if not news_id:
                 handler._send_error_response("缺少news_id参数")

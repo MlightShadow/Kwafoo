@@ -71,11 +71,11 @@ class SystemAPI:
                 return
             
             # 设置响应头
-            handler.send_response(200, {
-                'Content-Type': 'image/jpeg',
-                'Content-Length': len(image_data),
-                'Cache-Control': 'public, max-age=86400'  # 缓存24小时
-            })
+            handler.send_response(200)
+            handler.send_header('Content-Type', 'image/jpeg')
+            handler.send_header('Content-Length', str(len(image_data)))
+            handler.send_header('Cache-Control', 'public, max-age=86400')  # 缓存24小时
+            handler.end_headers()
             
             # 发送图片数据
             handler.wfile.write(image_data)

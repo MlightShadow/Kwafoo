@@ -78,11 +78,14 @@ async function handleMarkAsRead() {
     markingAsRead.value = true
     await api.markAsRead(props.news.id)
     
-    // 更新本地状态
+    // 更新本地状态 - 使用Object.assign确保响应式更新
     const newsItem = newsStore.newsList.find(n => n.id === props.news.id)
     if (newsItem) {
-      newsItem.is_read = 1
+      Object.assign(newsItem, { is_read: 1 })
     }
+    
+    // 显示成功提示
+    alert('已标记为已读')
   } catch (error) {
     console.error('标记为已读失败:', error)
     alert('标记失败，请重试')
@@ -147,7 +150,7 @@ function truncateText(text: string, maxLength: number): string {
 
 function handleImageError(event: Event) {
   const img = event.target as HTMLImageElement
-  img.src = 'https://via.placeholder.com/256'
+  img.src = 'https://placehold.co/400x200/e0e0e0/999999?text=No+Image'
 }
 </script>
 

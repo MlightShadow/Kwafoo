@@ -231,6 +231,9 @@ body {
   border-bottom: 1px solid #e0e0e0;
   padding: 1rem 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .top-nav .container {

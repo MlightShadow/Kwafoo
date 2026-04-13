@@ -74,11 +74,11 @@ class KwafooRequestHandler(BaseHTTPRequestHandler):
         # 处理API请求
         if path in self.api_routes:
             self.api_routes[path](self)
-        elif path.startswith('/api/'):
-            self.send_error(404, "API endpoint not found")
         elif path.startswith('/api/images/'):
             filename = path.replace('/api/images/', '')
             system_api.get_image(self, filename)
+        elif path.startswith('/api/'):
+            self.send_error(404, "API endpoint not found")
         else:
             # 对于单页应用，所有非API、非静态文件的请求都返回index.html
             # 让前端路由处理
