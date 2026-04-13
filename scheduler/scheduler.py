@@ -1,8 +1,9 @@
 import schedule
 import time
 import threading
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, NamedTuple
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.logger import logger
 from utils.helpers import config
 from utils.progress import progress_monitor
@@ -11,6 +12,14 @@ from fetcher.rss_fetcher import rss_fetcher
 from fetcher.api_fetcher import api_fetcher
 from fetcher.web_fetcher import web_fetcher
 from ai.processor import ai_news_processor
+
+
+class FetchResult(NamedTuple):
+    source_name: str
+    source_type: str
+    news_list: List[Dict[str, Any]]
+    success: bool
+    error: Optional[str] = None
 
 
 class Scheduler:
@@ -22,6 +31,7 @@ class Scheduler:
         self.auto_fetch = config.get('scheduler.auto_fetch', False)
         self.auto_ai_process = config.get('scheduler.auto_ai_process', False)
         self.auto_ai_after_fetch = config.get('scheduler.auto_ai_after_fetch', False)
+        self.max_fetch_workers = config.get('scheduler.max_fetch_workers', 20)
         
         # 任务运行状态
         self.fetching = False
@@ -88,100 +98,120 @@ class Scheduler:
         logger.info("新闻抓取任务已启动（异步）")
         return True
 
+    def _fetch_single_source(self, source: Dict[str, Any], source_type: str, task_id: str) -> FetchResult:
+        """抓取单个源"""
+        try:
+            source_name = source.get('name', 'Unknown')
+            logger.info(f"[{task_id}] 开始抓取 {source_type}: {source_name}")
+            
+            if source_type == 'rss':
+                news_list = rss_fetcher.fetch(
+                    source['url'],
+                    source_name,
+                    source.get('fetch_days')
+                )
+            elif source_type == 'api':
+                news_list = api_fetcher.fetch(
+                    source['url'],
+                    source.get('api_key', ''),
+                    source_name,
+                    source.get('fetch_days')
+                )
+            elif source_type == 'web':
+                news_list = web_fetcher.fetch(
+                    source['url'],
+                    source.get('selectors', {}),
+                    source_name,
+                    source.get('fetch_days')
+                )
+            else:
+                return FetchResult(source_name, source_type, [], False, f"Unknown source type: {source_type}")
+            
+            logger.info(f"[{task_id}] {source_type} 抓取完成: {source_name}, 获取 {len(news_list)} 条新闻")
+            return FetchResult(source_name, source_type, news_list, True)
+            
+        except Exception as e:
+            logger.error(f"[{task_id}] {source_type} 抓取失败: {source.get('name')} - {e}")
+            return FetchResult(source.get('name', 'Unknown'), source_type, [], False, str(e))
+
+    def _save_news_to_db(self, news_list: List[Dict[str, Any]], source_name: str, task_id: str) -> int:
+        """将新闻保存到数据库"""
+        if not news_list:
+            return 0
+        
+        inserted_count = 0
+        for news in news_list:
+            try:
+                news_id = db.insert_news(news)
+                if news_id > 0:
+                    inserted_count += 1
+            except Exception as e:
+                logger.error(f"[{task_id}] 保存新闻失败: {news.get('title', 'Unknown')} - {e}")
+        
+        logger.info(f"[{task_id}] {source_name} - 保存 {inserted_count} 条新闻到数据库")
+        return inserted_count
+
     def fetch_news(self):
+        """并发抓取新闻"""
         task_id = f"fetch_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         progress_monitor.start_task(task_id, "抓取新闻", 0)
         logger.info(f"开始抓取新闻 - 任务ID: {task_id}")
         
         try:
             news_sources = config.get('news_sources', {})
-            all_news = []
-            
             rss_sources = news_sources.get('rss', [])
             api_sources = news_sources.get('api', [])
             web_sources = news_sources.get('web', [])
             
-            total_sources = len(rss_sources) + len(api_sources) + len(web_sources)
-            current_source = 0
+            enabled_rss = [s for s in rss_sources if s.get('enabled', True)]
+            enabled_api = [s for s in api_sources if s.get('enabled', True)]
+            enabled_web = [s for s in web_sources if s.get('enabled', True)]
             
-            for source in rss_sources:
-                if not source.get('enabled', True):
-                    continue
-                
-                current_source += 1
-                logger.info(f"[{task_id}] 正在抓取RSS: {source.get('name')}")
-                progress_monitor.update_progress(
-                    task_id,
-                    int(current_source / total_sources * 100),
-                    f"抓取RSS: {source.get('name')}"
-                )
-                
-                news_list = rss_fetcher.fetch(
-                    source['url'],
-                    source['name'],
-                    source.get('fetch_days')
-                )
-                
-                logger.info(f"[{task_id}] RSS抓取完成: {source.get('name')}, 获取 {len(news_list)} 条新闻")
-                all_news.extend(news_list)
+            all_sources = [
+                *[(s, 'rss') for s in enabled_rss],
+                *[(s, 'api') for s in enabled_api],
+                *[(s, 'web') for s in enabled_web]
+            ]
             
-            for source in api_sources:
-                if not source.get('enabled', True):
-                    continue
-                
-                current_source += 1
-                logger.info(f"[{task_id}] 正在抓取API: {source.get('name')}")
-                progress_monitor.update_progress(
-                    task_id,
-                    int(current_source / total_sources * 100),
-                    f"抓取API: {source.get('name')}"
-                )
-                
-                news_list = api_fetcher.fetch(
-                    source['url'],
-                    source.get('api_key', ''),
-                    source['name'],
-                    source.get('fetch_days')
-                )
-                
-                logger.info(f"[{task_id}] API抓取完成: {source.get('name')}, 获取 {len(news_list)} 条新闻")
-                all_news.extend(news_list)
+            total_sources = len(all_sources)
+            if total_sources == 0:
+                logger.warning(f"[{task_id}] 没有启用的新闻源")
+                progress_monitor.complete_task(task_id, True)
+                return
             
-            for source in web_sources:
-                if not source.get('enabled', True):
-                    continue
-                
-                current_source += 1
-                logger.info(f"[{task_id}] 正在抓取网页: {source.get('name')}")
-                progress_monitor.update_progress(
-                    task_id,
-                    int(current_source / total_sources * 100),
-                    f"抓取网页: {source.get('name')}"
-                )
-                
-                news_list = web_fetcher.fetch(
-                    source['url'],
-                    source.get('selectors', {}),
-                    source['name'],
-                    source.get('fetch_days')
-                )
-                
-                logger.info(f"[{task_id}] 网页抓取完成: {source.get('name')}, 获取 {len(news_list)} 条新闻")
-                all_news.extend(news_list)
+            logger.info(f"[{task_id}] 共 {total_sources} 个新闻源需要抓取")
             
-            logger.info(f"[{task_id}] 所有新闻源抓取完成，共获取 {len(all_news)} 条新闻")
-            progress_monitor.update_progress(task_id, 90, "保存新闻数据")
+            max_workers = min(self.max_fetch_workers, total_sources)
+            completed_count = 0
+            total_inserted = 0
+            lock = threading.Lock()
             
-            inserted_count = 0
-            for news in all_news:
-                news_id = db.insert_news(news)
-                if news_id > 0:
-                    inserted_count += 1
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_source = {
+                    executor.submit(self._fetch_single_source, source, source_type, task_id): (source, source_type)
+                    for source, source_type in all_sources
+                }
+                
+                for future in as_completed(future_to_source):
+                    source, source_type = future_to_source[future]
+                    result = future.result()
+                    
+                    if result.success and result.news_list:
+                        inserted = self._save_news_to_db(result.news_list, result.source_name, task_id)
+                        total_inserted += inserted
+                    
+                    with lock:
+                        completed_count += 1
+                        progress = int(completed_count / total_sources * 100)
+                        progress_monitor.update_progress(
+                            task_id,
+                            progress,
+                            f"完成 {completed_count}/{total_sources}: {result.source_name}"
+                        )
             
             progress_monitor.complete_task(task_id, True)
-            logger.info(f"[{task_id}] 新闻抓取完成: 共获取 {len(all_news)} 条新闻，插入 {inserted_count} 条")
+            logger.info(f"[{task_id}] 新闻抓取完成: 共抓取 {total_sources} 个源，插入 {total_inserted} 条新闻")
             
-            # 如果配置了抓取完成后自动AI分析，则触发AI分析
             if self.auto_ai_after_fetch:
                 logger.info(f"[{task_id}] 抓取完成，自动将新闻添加到AI队列")
                 self.process_ai_news()

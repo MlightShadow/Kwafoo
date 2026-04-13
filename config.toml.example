@@ -70,6 +70,7 @@ ai_process_interval = 600
 auto_fetch = false
 auto_ai_process = false
 auto_ai_after_fetch = false
+max_fetch_workers = 20
 
 [network]
 enable_proxy = false

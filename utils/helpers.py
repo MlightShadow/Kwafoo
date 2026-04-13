@@ -127,7 +127,8 @@ class Config:
                 'ai_process_interval': 600,
                 'auto_fetch': False,
                 'auto_ai_process': False,
-                'auto_ai_after_fetch': False
+                'auto_ai_after_fetch': False,
+                'max_fetch_workers': 20
             },
             'network': {
                 'enable_proxy': False,
