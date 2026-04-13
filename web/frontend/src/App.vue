@@ -43,11 +43,6 @@
             <span v-else class="status-idle">✅ 系统运行正常</span>
           </div>
         </div>
-        
-        <div class="actions-section">
-          <button @click="handleFetch" class="action-btn">🔄 抓取</button>
-          <button @click="handleAIProcess" class="action-btn">🤖 AI分析</button>
-        </div>
       </div>
     </div>
 
@@ -87,10 +82,12 @@ import { useRouter } from 'vue-router'
 import CategoryList from '@/components/CategoryList.vue'
 import ChatModal from '@/components/ChatModal.vue'
 import { useNewsStore } from '@/stores/news'
+import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
 
 const router = useRouter()
 const newsStore = useNewsStore()
+const configStore = useConfigStore()
 
 const searchQuery = ref('')
 const isServerOnline = ref(true)
@@ -140,29 +137,6 @@ async function handleSearch() {
   await newsStore.searchNews(searchQuery.value.trim())
 }
 
-async function handleFetch() {
-  try {
-    const response = await api.manualFetch()
-    if (response.data.success) {
-      alert(response.data.message)
-      await newsStore.loadNews()
-    }
-  } catch (error: any) {
-    alert('抓取失败: ' + error.message)
-  }
-}
-
-async function handleAIProcess() {
-  try {
-    const response = await api.processAINews()
-    if (response.data.success) {
-      alert(response.data.message)
-    }
-  } catch (error: any) {
-    alert('AI处理失败: ' + error.message)
-  }
-}
-
 function openChat() {
   showChatModal.value = true
 }
@@ -182,7 +156,13 @@ function hideOfflineMessage() {
 
 onMounted(async () => {
   await checkServerStatus()
-  await newsStore.loadConfig()
+  await configStore.loadConfig()
+  
+  // 将分类配置设置到 newsStore
+  if (configStore.config?.categories) {
+    newsStore.setCategories(configStore.config.categories)
+  }
+  
   await newsStore.loadNews()
   
   serverMonitorInterval = window.setInterval(() => {
@@ -191,7 +171,7 @@ onMounted(async () => {
   
   progressMonitorInterval = window.setInterval(() => {
     loadProgress()
-  }, 5000)
+  }, 2000)
 })
 
 onUnmounted(() => {
@@ -343,26 +323,6 @@ body {
 
 .status-idle {
   color: #28a745;
-}
-
-.actions-section {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-btn {
-  padding: 0.75rem 1.5rem;
-  background: #28a745;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.3s ease;
-}
-
-.action-btn:hover {
-  background: #218838;
 }
 
 .main-content {

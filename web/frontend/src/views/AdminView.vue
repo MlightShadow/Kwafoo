@@ -30,12 +30,6 @@
       <div class="admin-section">
         <h3>🔄 快捷操作</h3>
         <div class="quick-actions">
-          <button @click="handleFetch" class="action-button primary">
-            🔄 手动抓取新闻
-          </button>
-          <button @click="handleAIProcess" class="action-button success">
-            🤖 AI分析新闻
-          </button>
           <button @click="handleClearNews" class="action-button danger">
             🗑️ 清空新闻数据
           </button>
@@ -63,6 +57,31 @@
           </div>
           <button @click="saveNewsSources" class="save-button">
             💾 保存新闻源配置
+          </button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <h3>🖼️ 图片显示配置</h3>
+        <div class="config-form">
+          <div class="form-group">
+            <label>图片位置</label>
+            <select v-model="imageDisplayConfig.position">
+              <option value="right">右侧</option>
+              <option value="left">左侧</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>
+              <input 
+                v-model="imageDisplayConfig.show_thumbnail" 
+                type="checkbox"
+              >
+              显示缩略图
+            </label>
+          </div>
+          <button @click="saveImageDisplayConfig" class="save-button">
+            💾 保存图片显示配置
           </button>
         </div>
       </div>
@@ -188,6 +207,11 @@ const config = computed(() => configStore.config)
 const rssSources = ref('')
 const apiSources = ref('')
 
+const imageDisplayConfig = ref({
+  position: 'right' as 'left' | 'right',
+  show_thumbnail: true
+})
+
 const aiConfig = ref({
   base_url: 'http://localhost:1234',
   model: 'nvidia/nemotron-3-nano-4b',
@@ -209,24 +233,14 @@ async function handleFetch() {
     const response = await api.manualFetch()
     if (response.data.success) {
       alert(response.data.message)
+      // 刷新数据
+      await newsStore.loadNews()
+      await newsStore.loadStats()
     } else {
       alert(response.data.message)
     }
   } catch (error: any) {
     alert('抓取失败: ' + error.message)
-  }
-}
-
-async function handleAIProcess() {
-  try {
-    const response = await api.processAINews()
-    if (response.data.success) {
-      alert(response.data.message)
-    } else {
-      alert(response.data.message)
-    }
-  } catch (error: any) {
-    alert('AI处理失败: ' + error.message)
   }
 }
 
@@ -258,6 +272,15 @@ async function saveNewsSources() {
   }
 }
 
+async function saveImageDisplayConfig() {
+  try {
+    await configStore.updateConfig({ image_display: imageDisplayConfig.value })
+    alert('图片显示配置保存成功')
+  } catch (error: any) {
+    alert('保存失败: ' + error.message)
+  }
+}
+
 async function saveAIConfig() {
   try {
     await configStore.updateConfig({ ai: aiConfig.value })
@@ -284,6 +307,9 @@ onMounted(async () => {
     if (config.value.news_sources) {
       rssSources.value = (config.value.news_sources as any).rss?.join('\n') || ''
       apiSources.value = (config.value.news_sources as any).api?.join('\n') || ''
+    }
+    if (config.value.image_display) {
+      Object.assign(imageDisplayConfig.value, config.value.image_display)
     }
     if (config.value.ai) {
       Object.assign(aiConfig.value, config.value.ai)

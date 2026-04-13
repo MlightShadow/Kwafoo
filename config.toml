@@ -76,6 +76,10 @@ default_image = ""
 supported_formats = [ "jpg", "jpeg", "png", "webp", "gif",]
 max_image_size = 5242880
 
+[image.display]
+position = "right"  # "right" 或 "left"
+show_thumbnail = true  # 是否显示缩略图
+
 [categories.tech]
 name = "科技"
 keywords = [ "人工智能", "科技",]

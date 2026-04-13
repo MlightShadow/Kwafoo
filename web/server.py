@@ -1,7 +1,7 @@
 import json
 import os
 import mimetypes
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 from typing import Dict, Any
 import threading
@@ -25,18 +25,24 @@ class KwafooRequestHandler(BaseHTTPRequestHandler):
         '/api/news/category': news_api.get_news_by_category,
         '/api/news/search': news_api.search_news,
         '/api/news/stats': news_api.get_news_stats,
+        '/api/news/read': news_api.get_read_news,
+        '/api/news/unread': news_api.get_unread_news,
         '/api/chat': chat_api.chat,
         '/api/progress': system_api.get_progress,
         '/api/health': system_api.health_check,
         '/api/config': config_api.get_config,
         '/api/ai/status': ai_api.get_ai_status,
-        '/api/ai/process': ai_api.process_ai_news
+        '/api/ai/process': ai_api.process_ai_news,
+        '/api/ai/queue/stats': ai_api.get_ai_queue_stats
     }
     post_routes = {
         '/api/chat': chat_api.chat,
         '/api/fetch': system_api.manual_fetch,
         '/api/ai/process': ai_api.process_ai_news,
+        '/api/ai/process/all': ai_api.process_all_news_ai,
+        '/api/ai/process/single': ai_api.process_single_news_ai,
         '/api/news/clear': news_api.clear_news,
+        '/api/news/mark-read': news_api.mark_as_read,
         '/api/config': config_api.update_config
     }
     
@@ -74,6 +80,26 @@ class KwafooRequestHandler(BaseHTTPRequestHandler):
             filename = path.replace('/api/images/', '')
             system_api.get_image(self, filename)
         else:
+            # 对于单页应用，所有非API、非静态文件的请求都返回index.html
+            # 让前端路由处理
+            if not os.path.exists(os.path.join(_DIST_DIR, path.lstrip('/'))):
+                # 文件不存在，返回index.html
+                index_path = os.path.join(_DIST_DIR, 'index.html')
+                if os.path.exists(index_path):
+                    try:
+                        with open(index_path, 'rb') as f:
+                            content = f.read()
+                        self.send_response(200)
+                        self.send_header('Content-Type', 'text/html; charset=utf-8')
+                        self.send_header('Content-Length', str(len(content)))
+                        self.end_headers()
+                        self.wfile.write(content)
+                        return
+                    except Exception as e:
+                        logger.error(f"Error serving index.html: {e}")
+                        self.send_error(500, str(e))
+                        return
+            
             # 处理静态文件
             self.serve_static_file(path)
 
@@ -160,7 +186,7 @@ class HTTPServerManager:
         host = config.get('server.host', '0.0.0.0')
         port = config.get('server.port', 8000)
         
-        self._server = HTTPServer((host, port), KwafooRequestHandler)
+        self._server = ThreadingHTTPServer((host, port), KwafooRequestHandler)
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
         

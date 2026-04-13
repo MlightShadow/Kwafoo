@@ -8,7 +8,7 @@
       @click="selectCategory(name)"
     >
       <span class="category-icon">{{ category.icon || '📄' }}</span>
-      <span class="category-name">{{ name }}</span>
+      <span class="category-name">{{ category.name || name }}</span>
     </button>
   </div>
 </template>

@@ -99,5 +99,71 @@ class NewsAPI:
             logger.error(f"清空新闻失败: {e}")
             handler._send_error_response(str(e))
 
+    def mark_as_read(self, handler):
+        """
+        标记新闻为已读
+        """
+        try:
+            from urllib.parse import parse_qs, urlparse
+            params = parse_qs(urlparse(handler.path).query)
+            news_id = int(params.get('news_id', ['0'])[0])
+
+            if not news_id:
+                handler._send_error_response("缺少news_id参数")
+                return
+
+            success = db.mark_news_as_read(news_id)
+
+            if success:
+                handler._send_json_response({
+                    'success': True,
+                    'message': '新闻已标记为已读'
+                })
+            else:
+                handler._send_error_response("标记失败")
+        except Exception as e:
+            logger.error(f"标记新闻为已读失败: {e}")
+            handler._send_error_response(str(e))
+
+    def get_read_news(self, handler):
+        """
+        获取已读新闻
+        """
+        try:
+            from urllib.parse import parse_qs, urlparse
+            params = parse_qs(urlparse(handler.path).query)
+            limit = int(params.get('limit', ['100'])[0])
+
+            news_list = db.get_read_news(limit)
+
+            handler._send_json_response({
+                'success': True,
+                'data': news_list,
+                'count': len(news_list)
+            })
+        except Exception as e:
+            logger.error(f"获取已读新闻失败: {e}")
+            handler._send_error_response(str(e))
+
+    def get_unread_news(self, handler):
+        """
+        获取未读新闻
+        """
+        try:
+            from urllib.parse import parse_qs, urlparse
+            params = parse_qs(urlparse(handler.path).query)
+            limit = int(params.get('limit', ['100'])[0])
+
+            news_list = db.get_unread_news(limit)
+
+            handler._send_json_response({
+                'success': True,
+                'data': news_list,
+                'count': len(news_list)
+            })
+        except Exception as e:
+            logger.error(f"获取未读新闻失败: {e}")
+            handler._send_error_response(str(e))
+
 
 news_api = NewsAPI()

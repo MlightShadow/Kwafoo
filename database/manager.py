@@ -52,7 +52,8 @@ class DatabaseManager:
                 ai_processed BOOLEAN DEFAULT 0,
                 image_url TEXT,
                 image_data BLOB,
-                is_deleted BOOLEAN DEFAULT 0
+                is_deleted BOOLEAN DEFAULT 0,
+                is_read BOOLEAN DEFAULT 0
             )
         ''')
         
@@ -109,6 +110,21 @@ class DatabaseManager:
             )
         ''')
         
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ai_processing_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                news_id INTEGER NOT NULL,
+                task_type TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                priority INTEGER DEFAULT 0,
+                retry_count INTEGER DEFAULT 0,
+                error_message TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (news_id) REFERENCES news(id)
+            )
+        ''')
+        
         self._create_indexes()
         self._create_fts_table()
         
@@ -138,6 +154,11 @@ class DatabaseManager:
             if 'is_deleted' not in columns:
                 cursor.execute("ALTER TABLE news ADD COLUMN is_deleted BOOLEAN DEFAULT 0")
                 logger.info("数据库迁移：添加 is_deleted 字段")
+            
+            # 添加 is_read 字段
+            if 'is_read' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT 0")
+                logger.info("数据库迁移：添加 is_read 字段")
             
             self._connection.commit()
             
@@ -605,6 +626,224 @@ class DatabaseManager:
                 'processed': 0,
                 'unprocessed': 0
             }
+
+    def clear_ai_status(self, news_id: int) -> bool:
+        """
+        清除新闻的AI处理状态，允许重新处理
+
+        Args:
+            news_id: 新闻ID
+
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                UPDATE news 
+                SET ai_processed = 0,
+                    ai_summary = NULL,
+                    ai_category = NULL,
+                    ai_sentiment = NULL,
+                    ai_keywords = NULL,
+                    ai_processed_at = NULL
+                WHERE id = ?
+            ''', (news_id,))
+            self._connection.commit()
+            logger.info(f"已清除新闻AI处理状态: news_id={news_id}")
+            return True
+        except Exception as e:
+            logger.error(f"清除AI处理状态失败: {e}")
+            self._connection.rollback()
+            return False
+
+    def add_to_ai_queue(self, news_id: int, task_type: str = 'all', priority: int = 0) -> int:
+        """
+        添加任务到AI处理队列
+
+        Args:
+            news_id: 新闻ID
+            task_type: 任务类型 ('category', 'summary', 'all')
+            priority: 优先级 (0=普通, 1=高)
+
+        Returns:
+            任务ID
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                INSERT INTO ai_processing_queue (news_id, task_type, status, priority)
+                VALUES (?, ?, 'pending', ?)
+            ''', (news_id, task_type, priority))
+            task_id = cursor.lastrowid
+            self._connection.commit()
+            logger.info(f"AI任务已添加到队列: task_id={task_id}, news_id={news_id}, task_type={task_type}")
+            return task_id
+        except Exception as e:
+            logger.error(f"添加AI任务到队列失败: {e}")
+            self._connection.rollback()
+            return -1
+
+    def get_next_ai_task(self) -> Optional[Dict]:
+        """
+        获取下一个待处理的AI任务
+
+        Returns:
+            任务字典或None
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM ai_processing_queue
+                WHERE status = 'pending'
+                ORDER BY priority DESC, created_at ASC
+                LIMIT 1
+            ''')
+            row = cursor.fetchone()
+            if row:
+                task = dict(row)
+                # 更新状态为处理中
+                self.update_ai_task_status(task['id'], 'processing')
+                return task
+            return None
+        except Exception as e:
+            logger.error(f"获取下一个AI任务失败: {e}")
+            return None
+
+    def update_ai_task_status(self, task_id: int, status: str, error_message: str = None) -> bool:
+        """
+        更新AI任务状态
+
+        Args:
+            task_id: 任务ID
+            status: 新状态 ('pending', 'processing', 'completed', 'failed')
+            error_message: 错误信息（可选）
+
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            if error_message:
+                cursor.execute('''
+                    UPDATE ai_processing_queue
+                    SET status = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (status, error_message, task_id))
+            else:
+                cursor.execute('''
+                    UPDATE ai_processing_queue
+                    SET status = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (status, task_id))
+            self._connection.commit()
+            logger.debug(f"AI任务状态更新: task_id={task_id}, status={status}")
+            return True
+        except Exception as e:
+            logger.error(f"更新AI任务状态失败: {e}")
+            self._connection.rollback()
+            return False
+
+    def get_ai_queue_stats(self) -> Dict[str, int]:
+        """
+        获取AI队列统计信息
+
+        Returns:
+            统计信息字典
+        """
+        try:
+            cursor = self._connection.cursor()
+            stats = {}
+
+            # 待处理
+            cursor.execute("SELECT COUNT(*) FROM ai_processing_queue WHERE status = 'pending'")
+            stats['pending'] = cursor.fetchone()[0]
+
+            # 处理中
+            cursor.execute("SELECT COUNT(*) FROM ai_processing_queue WHERE status = 'processing'")
+            stats['processing'] = cursor.fetchone()[0]
+
+            # 已完成
+            cursor.execute("SELECT COUNT(*) FROM ai_processing_queue WHERE status = 'completed'")
+            stats['completed'] = cursor.fetchone()[0]
+
+            # 失败
+            cursor.execute("SELECT COUNT(*) FROM ai_processing_queue WHERE status = 'failed'")
+            stats['failed'] = cursor.fetchone()[0]
+
+            return stats
+        except Exception as e:
+            logger.error(f"获取AI队列统计失败: {e}")
+            return {'pending': 0, 'processing': 0, 'completed': 0, 'failed': 0}
+
+    def mark_news_as_read(self, news_id: int) -> bool:
+        """
+        标记新闻为已读
+
+        Args:
+            news_id: 新闻ID
+
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                UPDATE news SET is_read = 1 WHERE id = ?
+            ''', (news_id,))
+            self._connection.commit()
+            logger.debug(f"新闻已标记为已读: ID={news_id}")
+            return True
+        except Exception as e:
+            logger.error(f"标记新闻为已读失败: {e}")
+            self._connection.rollback()
+            return False
+
+    def get_read_news(self, limit: int = 100) -> List[Dict]:
+        """
+        获取已读新闻
+
+        Args:
+            limit: 限制数量
+
+        Returns:
+            新闻列表
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM news
+                WHERE is_read = 1 AND is_visible = 1 AND is_deleted = 0
+                ORDER BY publish_time DESC
+                LIMIT ?
+            ''', (limit,))
+            return [self._convert_row(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"获取已读新闻失败: {e}")
+            return []
+
+    def get_unread_news(self, limit: int = 100) -> List[Dict]:
+        """
+        获取未读新闻
+
+        Args:
+            limit: 限制数量
+
+        Returns:
+            新闻列表
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM news
+                WHERE is_read = 0 AND is_visible = 1 AND is_deleted = 0
+                ORDER BY publish_time DESC
+                LIMIT ?
+            ''', (limit,))
+            return [self._convert_row(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"获取未读新闻失败: {e}")
+            return []
 
     def close(self):
         if self._connection:

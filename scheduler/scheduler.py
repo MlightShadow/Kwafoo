@@ -27,6 +27,10 @@ class Scheduler:
         self.fetching = False
         self.ai_processing = False
         
+        # 队列处理器
+        self.queue_processor_thread = None
+        self.queue_processor_running = False
+        
         # 根据配置决定是否启用自动任务
         if self.auto_fetch:
             schedule.every(self.fetch_interval // 60).minutes.do(self.fetch_news_async)
@@ -178,15 +182,9 @@ class Scheduler:
             logger.info(f"[{task_id}] 新闻抓取完成: 共获取 {len(all_news)} 条新闻，插入 {inserted_count} 条")
             
             # 如果配置了抓取完成后自动AI分析，则触发AI分析
-            # 检查是否启用了AI分类或AI摘要
-            enable_ai_category = config.get('enable_ai_category', False)
-            enable_ai_summary = config.get('enable_ai_summary', False)
-            
-            if self.auto_ai_after_fetch and (enable_ai_category or enable_ai_summary):
-                logger.info(f"[{task_id}] 抓取完成，自动开始AI分析 (分类: {enable_ai_category}, 摘要: {enable_ai_summary})")
-                self.process_ai_news_async()
-            elif self.auto_ai_after_fetch:
-                logger.info(f"[{task_id}] 抓取完成，但AI分类和摘要均未启用，跳过AI分析")
+            if self.auto_ai_after_fetch:
+                logger.info(f"[{task_id}] 抓取完成，自动将新闻添加到AI队列")
+                self.process_ai_news()
             
         except Exception as e:
             logger.error(f"[{task_id}] 新闻抓取失败: {e}")
@@ -215,28 +213,74 @@ class Scheduler:
         return True
 
     def process_ai_news(self):
-        task_id = f"ai_process_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        progress_monitor.start_task(task_id, "AI处理新闻", 0)
-        logger.info(f"开始AI分析新闻 - 任务ID: {task_id}")
-        
+        """
+        将所有未处理的新闻添加到AI队列
+        """
         try:
-            logger.info(f"[{task_id}] 正在获取未处理的新闻...")
-            result = ai_news_processor.process_all_unprocessed()
-            
-            if result['status'] == 'completed':
-                progress_monitor.update_progress(task_id, 100, "AI处理完成")
-                progress_monitor.complete_task(task_id, True)
-                logger.info(f"[{task_id}] AI处理完成: 成功={result['success']}, 失败={result['failed']}")
-            elif result['status'] == 'error':
-                progress_monitor.complete_task(task_id, False, result.get('error'))
-                logger.error(f"[{task_id}] AI处理失败: {result.get('error')}")
-            else:
-                progress_monitor.complete_task(task_id, True)
-                logger.info(f"[{task_id}] {result.get('message')}")
-            
+            # 获取所有未处理的新闻
+            news_list = db.get_unprocessed_news(limit=10000)
+
+            if not news_list:
+                logger.info("没有未处理的新闻")
+                return
+
+            logger.info(f"将 {len(news_list)} 条未处理新闻添加到AI队列")
+
+            # 添加到AI队列
+            for news in news_list:
+                db.add_to_ai_queue(news['id'], 'all', priority=0)
+
+            logger.info(f"已将 {len(news_list)} 条新闻添加到AI队列")
+
         except Exception as e:
-            logger.error(f"[{task_id}] AI处理异常: {e}")
-            progress_monitor.complete_task(task_id, False, str(e))
+            logger.error(f"添加未处理新闻到AI队列失败: {e}")
+
+    def process_all_news_ai(self):
+        """
+        将所有新闻添加到AI队列
+        """
+        try:
+            # 获取所有新闻
+            cursor = db._connection.cursor()
+            cursor.execute('''
+                SELECT id FROM news
+                WHERE is_visible = 1 AND is_deleted = 0
+            ''')
+            news_list = cursor.fetchall()
+
+            if not news_list:
+                logger.info("没有新闻")
+                return
+
+            logger.info(f"将 {len(news_list)} 条新闻添加到AI队列")
+
+            # 添加到AI队列（高优先级）
+            for news in news_list:
+                db.add_to_ai_queue(news['id'], 'all', priority=1)
+
+            logger.info(f"已将 {len(news_list)} 条新闻添加到AI队列")
+
+        except Exception as e:
+            logger.error(f"添加所有新闻到AI队列失败: {e}")
+
+    def start_queue_processor(self):
+        """
+        启动AI队列处理器
+        """
+        if self.queue_processor_running:
+            logger.warning("AI队列处理器已在运行")
+            return
+
+        def run_processor():
+            try:
+                self.queue_processor_running = True
+                ai_news_processor.process_queue()
+            finally:
+                self.queue_processor_running = False
+
+        self.queue_processor_thread = threading.Thread(target=run_processor, daemon=True)
+        self.queue_processor_thread.start()
+        logger.info("AI队列处理器已启动")
 
     def process_ai_news_manual(self):
         """手动执行AI分析任务，不受配置限制"""
@@ -246,7 +290,7 @@ class Scheduler:
         
         try:
             logger.info(f"[{task_id}] 正在获取未处理的新闻...")
-            result = ai_news_processor.process_all_unprocessed_manual()
+            result = ai_news_processor.process_all_unprocessed_manual(task_id=task_id)
             
             if result['status'] == 'completed':
                 progress_monitor.update_progress(task_id, 100, "AI处理完成")

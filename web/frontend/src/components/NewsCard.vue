@@ -1,6 +1,6 @@
 <template>
-  <div class="news-card" :data-id="news.id">
-    <div v-if="news.image_data || news.image_url" class="news-image">
+  <div class="news-card" :data-id="news.id" :class="imagePositionClass">
+    <div v-if="showThumbnail" class="news-image">
       <img 
         :src="imageUrl" 
         :alt="news.title" 
@@ -13,7 +13,7 @@
       <div class="news-meta">
         <span class="news-source">{{ news.source }}</span>
         <span class="news-time">{{ formatTime(news.publish_time) }}</span>
-        <span v-if="news.category" class="news-category">{{ news.category }}</span>
+        <span v-if="categoryDisplayName" class="news-category">{{ categoryDisplayName }}</span>
       </div>
       <div v-if="news.ai_summary" class="news-summary ai-generated">
         <strong>AI摘要：</strong>{{ news.ai_summary }}
@@ -21,15 +21,35 @@
       <div v-else-if="news.description" class="news-description">
         {{ truncateText(news.description, 140) }}
       </div>
-      <a v-if="news.url" :href="news.url" target="_blank" class="news-link">
-        阅读原文
-      </a>
+      <div class="news-actions">
+        <a v-if="news.url" :href="news.url" target="_blank" class="news-link">
+          阅读原文
+        </a>
+        <button 
+          @click="handleAIProcess" 
+          class="ai-process-btn"
+          :disabled="aiProcessing"
+        >
+          🤖 {{ aiProcessing ? '处理中...' : (news.ai_processed ? '重新分析' : 'AI分析') }}
+        </button>
+        <button 
+          v-if="!news.is_read" 
+          @click="handleMarkAsRead" 
+          class="mark-read-btn"
+          :disabled="markingAsRead"
+        >
+          ✓ {{ markingAsRead ? '处理中...' : '阅读标记' }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useNewsStore } from '@/stores/news'
+import { useConfigStore } from '@/stores/config'
+import { api } from '@/api'
 import type { News } from '@/types/news'
 
 interface Props {
@@ -37,12 +57,72 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const newsStore = useNewsStore()
+const configStore = useConfigStore()
+const markingAsRead = ref(false)
+const aiProcessing = ref(false)
+
+const imagePositionClass = computed(() => {
+  const position = configStore.config?.image_display?.position || 'right'
+  return `image-${position}`
+})
+
+const showThumbnail = computed(() => {
+  return configStore.config?.image_display?.show_thumbnail !== false
+})
+
+async function handleMarkAsRead() {
+  if (markingAsRead.value) return
+  
+  try {
+    markingAsRead.value = true
+    await api.markAsRead(props.news.id)
+    
+    // 更新本地状态
+    const newsItem = newsStore.newsList.find(n => n.id === props.news.id)
+    if (newsItem) {
+      newsItem.is_read = 1
+    }
+  } catch (error) {
+    console.error('标记为已读失败:', error)
+    alert('标记失败，请重试')
+  } finally {
+    markingAsRead.value = false
+  }
+}
+
+async function handleAIProcess() {
+  if (aiProcessing.value) return
+  
+  try {
+    aiProcessing.value = true
+    await api.processSingleNewsAI(props.news.id, true)
+    alert('已将新闻添加到AI队列')
+  } catch (error) {
+    console.error('AI分析失败:', error)
+    alert('AI分析失败，请重试')
+  } finally {
+    aiProcessing.value = false
+  }
+}
 
 const imageUrl = computed(() => {
   if (props.news.image_data) {
     return `data:image/jpeg;base64,${props.news.image_data}`
   }
-  return props.news.image_url || 'https://via.placeholder.com/256'
+  return props.news.image_url || 'https://placehold.co/400x200/e0e0e0/999999?text=No+Image'
+})
+
+const categoryDisplayName = computed(() => {
+  if (!props.news.category) return ''
+  
+  const categories = props.news.category.split(',')
+  const displayNames = categories.map(cat => {
+    const categoryConfig = newsStore.categories[cat]
+    return categoryConfig?.name || cat
+  })
+  
+  return displayNames.join('、')
 })
 
 function formatTime(timeString?: string): string {
@@ -83,6 +163,14 @@ function handleImageError(event: Event) {
   height: 100%;
 }
 
+.news-card.image-right {
+  flex-direction: row;
+}
+
+.news-card.image-left {
+  flex-direction: row-reverse;
+}
+
 .news-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -92,6 +180,12 @@ function handleImageError(event: Event) {
   height: 200px;
   overflow: hidden;
   background: #f5f5f5;
+}
+
+.news-card.image-right .news-image,
+.news-card.image-left .news-image {
+  width: 200px;
+  flex-shrink: 0;
 }
 
 .news-image img {
@@ -155,6 +249,13 @@ function handleImageError(event: Event) {
   flex: 1;
 }
 
+.news-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .news-link {
   display: inline-block;
   padding: 0.5rem 1rem;
@@ -168,5 +269,51 @@ function handleImageError(event: Event) {
 
 .news-link:hover {
   background: #0056b3;
+}
+
+.ai-process-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.ai-process-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5568d3 0%, #654391 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.ai-process-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mark-read-btn {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  align-self: flex-start;
+}
+
+.mark-read-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e0a800 0%, #d39e00 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+}
+
+.mark-read-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

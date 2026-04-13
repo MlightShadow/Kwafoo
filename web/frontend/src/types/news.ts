@@ -15,6 +15,7 @@ export interface News {
   image_url?: string
   image_data?: string
   is_deleted: number
+  is_read: number
 }
 
 export interface NewsStats {

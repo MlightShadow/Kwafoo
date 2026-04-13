@@ -45,6 +45,18 @@ class APIClient {
     return this.client.post('/news/clear')
   }
 
+  async markAsRead(newsId: number): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/news/mark-read', { news_id: newsId })
+  }
+
+  async getReadNews(limit: number = 100): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number }>> {
+    return this.client.get(`/news/read?limit=${limit}`)
+  }
+
+  async getUnreadNews(limit: number = 100): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number }>> {
+    return this.client.get(`/news/unread?limit=${limit}`)
+  }
+
   // Chat API
   async chat(message: string, category?: string | null, sessionId?: string | null): Promise<AxiosResponse<ChatResponse>> {
     return this.client.post('/chat', {
@@ -83,6 +95,18 @@ class APIClient {
 
   async processAINews(): Promise<AxiosResponse<{ success: boolean; message: string }>> {
     return this.client.post('/ai/process')
+  }
+
+  async processAllNewsAI(): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/ai/process/all')
+  }
+
+  async processSingleNewsAI(newsId: number, force: boolean = false): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/ai/process/single', { news_id: newsId, force })
+  }
+
+  async getAIQueueStats(): Promise<AxiosResponse<{ success: boolean; data: any }>> {
+    return this.client.get('/ai/queue/stats')
   }
 }
 

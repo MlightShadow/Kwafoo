@@ -19,13 +19,17 @@ class ConfigAPI:
             default_category = config.get('default_category', '未分类')
             enable_ai_category = config.get('enable_ai_category', False)
             
+            # 获取图片显示配置
+            image_display = config.get('image.display', {})
+            
             # 返回完整的分类配置（包含icon和color）
             handler._send_json_response({
                 'success': True,
                 'data': {
                     'categories': categories,
                     'default_category': default_category,
-                    'enable_ai_category': enable_ai_category
+                    'enable_ai_category': enable_ai_category,
+                    'image_display': image_display
                 }
             })
         except Exception as e:
@@ -50,7 +54,7 @@ class ConfigAPI:
             
             # 更新配置
             for key, value in data.items():
-                if key in ['categories', 'default_category', 'enable_ai_category']:
+                if key in ['categories', 'default_category', 'enable_ai_category', 'image_display']:
                     current_config[key] = value
             
             # 验证配置

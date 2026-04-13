@@ -40,6 +40,9 @@ def main():
         logger.info("启动调度器...")
         scheduler.start()
         
+        logger.info("启动AI队列处理器...")
+        scheduler.start_queue_processor()
+        
         logger.info("启动HTTP服务器...")
         http_server.start()
         

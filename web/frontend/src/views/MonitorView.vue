@@ -71,13 +71,38 @@
       </div>
 
       <div class="monitor-section">
+        <h3>🤖 AI队列统计</h3>
+        <div class="ai-queue-stats">
+          <div class="stat-item">
+            <div class="stat-label">待处理</div>
+            <div class="stat-value">{{ aiQueueStats?.pending || 0 }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">处理中</div>
+            <div class="stat-value">{{ aiQueueStats?.processing || 0 }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">已完成</div>
+            <div class="stat-value">{{ aiQueueStats?.completed || 0 }}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">失败</div>
+            <div class="stat-value">{{ aiQueueStats?.failed || 0 }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="monitor-section">
         <h3>快捷操作</h3>
         <div class="quick-actions">
           <button @click="handleFetch" class="action-button">
             🔄 手动抓取新闻
           </button>
-          <button @click="handleAIProcess" class="action-button">
-            🤖 AI分析新闻
+          <button @click="handleAIProcessUnprocessed" class="action-button">
+            🤖 AI分析未处理新闻
+          </button>
+          <button @click="handleAIProcessAll" class="action-button">
+            🤖 AI分析所有新闻
           </button>
           <button @click="refreshData" class="action-button">
             🔄 刷新数据
@@ -98,6 +123,7 @@ const newsStore = useNewsStore()
 const tasks = ref<any[]>([])
 const isServerOnline = ref(true)
 const aiStatus = ref<string>('idle')
+const aiQueueStats = ref<any>(null)
 const loading = ref(false)
 
 const stats = computed(() => newsStore.stats)
@@ -144,6 +170,17 @@ async function loadAIStatus() {
   }
 }
 
+async function loadAIQueueStats() {
+  try {
+    const response = await api.getAIQueueStats()
+    if (response.data.success) {
+      aiQueueStats.value = response.data.data
+    }
+  } catch (error: any) {
+    console.error('加载AI队列统计失败:', error)
+  }
+}
+
 async function checkServerStatus() {
   try {
     const response = await api.healthCheck()
@@ -158,6 +195,8 @@ async function handleFetch() {
     const response = await api.manualFetch()
     if (response.data.success) {
       alert(response.data.message)
+      // 刷新数据
+      await refreshData()
     } else {
       alert(response.data.message)
     }
@@ -166,11 +205,28 @@ async function handleFetch() {
   }
 }
 
-async function handleAIProcess() {
+async function handleAIProcessUnprocessed() {
   try {
     const response = await api.processAINews()
     if (response.data.success) {
       alert(response.data.message)
+      // 刷新数据
+      await refreshData()
+    } else {
+      alert(response.data.message)
+    }
+  } catch (error: any) {
+    alert('AI处理失败: ' + error.message)
+  }
+}
+
+async function handleAIProcessAll() {
+  try {
+    const response = await api.processAllNewsAI()
+    if (response.data.success) {
+      alert(response.data.message)
+      // 刷新数据
+      await refreshData()
     } else {
       alert(response.data.message)
     }
@@ -185,6 +241,7 @@ async function refreshData() {
     await Promise.all([
       loadProgress(),
       loadAIStatus(),
+      loadAIQueueStats(),
       checkServerStatus(),
       newsStore.loadStats()
     ])
@@ -199,6 +256,7 @@ onMounted(async () => {
   monitorInterval = window.setInterval(() => {
     loadProgress()
     loadAIStatus()
+    loadAIQueueStats()
     checkServerStatus()
   }, 5000)
 })
@@ -383,6 +441,31 @@ onUnmounted(() => {
 
 .ai-status.status-error {
   color: #dc3545;
+}
+
+.ai-queue-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.stat-item {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
 }
 
 .quick-actions {

@@ -29,7 +29,13 @@ class ProgressMonitor:
         """通过WebSocket广播消息"""
         if self._ws_enabled and self._ws_broadcast_callback:
             try:
-                await self._ws_broadcast_callback(message_type, data)
+                # 构建完整的消息
+                message = {
+                    'type': message_type,
+                    **data,
+                    'timestamp': datetime.now().isoformat()
+                }
+                await self._ws_broadcast_callback(message)
             except Exception as e:
                 logger.error(f"WebSocket广播失败: {e}")
 
@@ -68,8 +74,8 @@ class ProgressMonitor:
                 )
             else:
                 asyncio.run(self._broadcast(message_type, data))
-        except RuntimeError:
-            pass
+        except RuntimeError as e:
+            logger.debug(f"事件循环不可用，跳过广播: {e}")
         except Exception as e:
             logger.error(f"广播失败: {e}")
 

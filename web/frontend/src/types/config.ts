@@ -5,6 +5,10 @@ export interface Config {
   }>
   default_category: string
   enable_ai_category: boolean
+  image_display: {
+    position: 'left' | 'right'
+    show_thumbnail: boolean
+  }
 }
 
 export interface SystemConfig {

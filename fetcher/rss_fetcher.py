@@ -84,18 +84,19 @@ class RSSFetcher:
             if not title:
                 return None
             
-            description = entry.get('description', '')
-            if not description:
-                description = entry.get('summary', '')
+            raw_description = entry.get('description', '')
+            if not raw_description:
+                raw_description = entry.get('summary', '')
             
-            description = self._clean_html(description)
+            # 提取图片URL（使用原始HTML）
+            image_url = self._extract_image_url(entry, raw_description)
+            
+            # 清理HTML标签
+            description = self._clean_html(raw_description)
             
             link = entry.get('link', '')
             if not link:
                 return None
-            
-            # 提取图片URL
-            image_url = self._extract_image_url(entry, description)
             
             publish_time = None
             if hasattr(entry, 'published_parsed') and entry.published_parsed:
