@@ -3,8 +3,9 @@ import os
 import mimetypes
 from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
-from typing import Dict, Any
+from typing import Dict, Any, Callable, List, Tuple
 import threading
+from functools import wraps
 from utils.logger import logger
 from utils.helpers import config
 from utils.progress import progress_monitor
@@ -18,36 +19,94 @@ _SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 _DIST_DIR = os.path.join(_SERVER_DIR, 'dist')
 
 
+class Router:
+    """路由管理器"""
+    
+    def __init__(self):
+        self.get_routes: Dict[str, Callable] = {}
+        self.post_routes: Dict[str, Callable] = {}
+    
+    def route(self, path: str, methods: List[str] = None):
+        """
+        路由装饰器
+        
+        Args:
+            path: 路由路径
+            methods: 允许的HTTP方法列表，默认为['GET']
+        """
+        if methods is None:
+            methods = ['GET']
+        
+        def decorator(func: Callable):
+            for method in methods:
+                if method.upper() == 'GET':
+                    self.get_routes[path] = func
+                elif method.upper() == 'POST':
+                    self.post_routes[path] = func
+            return func
+        return decorator
+    
+    def get(self, path: str):
+        """
+        GET路由装饰器
+        
+        Args:
+            path: 路由路径
+        """
+        return self.route(path, ['GET'])
+    
+    def post(self, path: str):
+        """
+        POST路由装饰器
+        
+        Args:
+            path: 路由路径
+        """
+        return self.route(path, ['POST'])
+    
+    def register_get(self, path: str, handler: Callable):
+        """
+        注册GET路由
+        
+        Args:
+            path: 路由路径
+            handler: 处理函数
+        """
+        self.get_routes[path] = handler
+    
+    def register_post(self, path: str, handler: Callable):
+        """
+        注册POST路由
+        
+        Args:
+            path: 路由路径
+            handler: 处理函数
+        """
+        self.post_routes[path] = handler
+    
+    def get_handler(self, method: str, path: str) -> Callable:
+        """
+        获取路由处理函数
+        
+        Args:
+            method: HTTP方法
+            path: 路由路径
+            
+        Returns:
+            处理函数，如果不存在则返回None
+        """
+        if method.upper() == 'GET':
+            return self.get_routes.get(path)
+        elif method.upper() == 'POST':
+            return self.post_routes.get(path)
+        return None
+
+
+# 全局路由实例
+router = Router()
+
+
 class KwafooRequestHandler(BaseHTTPRequestHandler):
-    # 定义API路由
-    api_routes = {
-        '/api/news': news_api.get_news,
-        '/api/news/category': news_api.get_news_by_category,
-        '/api/news/search': news_api.search_news,
-        '/api/news/stats': news_api.get_news_stats,
-        '/api/news/read': news_api.get_read_news,
-        '/api/news/unread': news_api.get_unread_news,
-        '/api/chat': chat_api.chat,
-        '/api/progress': system_api.get_progress,
-        '/api/health': system_api.health_check,
-        '/api/config': config_api.get_config,
-        '/api/ai/status': ai_api.get_ai_status,
-        '/api/ai/process': ai_api.process_ai_news,
-        '/api/ai/queue/stats': ai_api.get_ai_queue_stats
-    }
-    post_routes = {
-        '/api/chat': chat_api.chat,
-        '/api/fetch': system_api.manual_fetch,
-        '/api/ai/process': ai_api.process_ai_news,
-        '/api/ai/process/all': ai_api.process_all_news_ai,
-        '/api/ai/process/single': ai_api.process_single_news_ai,
-        '/api/ai/process/category': ai_api.process_news_category,
-        '/api/ai/process/summary': ai_api.process_news_summary,
-        '/api/ai/process/reanalyze': ai_api.process_news_reanalyze,
-        '/api/news/clear': news_api.clear_news,
-        '/api/news/mark-read': news_api.mark_as_read,
-        '/api/config': config_api.update_config
-    }
     
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -75,8 +134,9 @@ class KwafooRequestHandler(BaseHTTPRequestHandler):
                 return
         
         # 处理API请求
-        if path in self.api_routes:
-            self.api_routes[path](self)
+        handler = router.get_handler('GET', path)
+        if handler:
+            handler(self)
         elif path.startswith('/api/images/'):
             filename = path.replace('/api/images/', '')
             system_api.get_image(self, filename)
@@ -139,8 +199,9 @@ class KwafooRequestHandler(BaseHTTPRequestHandler):
         parsed_path = urlparse(self.path)
         path = parsed_path.path
         
-        if path in self.post_routes:
-            self.post_routes[path](self)
+        handler = router.get_handler('POST', path)
+        if handler:
+            handler(self)
         else:
             self.send_error(404, "API endpoint not found")
 
@@ -186,6 +247,9 @@ class HTTPServerManager:
             logger.warning("HTTP服务器已在运行")
             return
         
+        # 注册所有API路由
+        self._register_routes()
+        
         host = config.get('server.host', '0.0.0.0')
         port = config.get('server.port', 8000)
         
@@ -194,6 +258,36 @@ class HTTPServerManager:
         self._thread.start()
         
         logger.info(f"HTTP服务器已启动: http://{host}:{port}")
+
+    def _register_routes(self):
+        """注册所有API路由"""
+        # GET路由（装饰器已经处理了参数验证，直接传递方法）
+        router.register_get('/api/news', news_api.get_news)
+        router.register_get('/api/news/category', news_api.get_news_by_category)
+        router.register_get('/api/news/search', news_api.search_news)
+        router.register_get('/api/news/stats', news_api.get_news_stats)
+        router.register_get('/api/news/read', news_api.get_read_news)
+        router.register_get('/api/news/unread', news_api.get_unread_news)
+        router.register_get('/api/chat', chat_api.chat)
+        router.register_get('/api/progress', system_api.get_progress)
+        router.register_get('/api/health', system_api.health_check)
+        router.register_get('/api/config', config_api.get_config)
+        router.register_get('/api/ai/status', ai_api.get_ai_status)
+        router.register_get('/api/ai/process', ai_api.process_ai_news)
+        router.register_get('/api/ai/queue/stats', ai_api.get_ai_queue_stats)
+        
+        # POST路由
+        router.register_post('/api/chat', chat_api.chat)
+        router.register_post('/api/fetch', system_api.manual_fetch)
+        router.register_post('/api/ai/process', ai_api.process_ai_news)
+        router.register_post('/api/ai/process/all', ai_api.process_all_news_ai)
+        router.register_post('/api/ai/process/single', ai_api.process_single_news_ai)
+        router.register_post('/api/ai/process/category', ai_api.process_news_category)
+        router.register_post('/api/ai/process/summary', ai_api.process_news_summary)
+        router.register_post('/api/ai/process/reanalyze', ai_api.process_news_reanalyze)
+        router.register_post('/api/news/clear', news_api.clear_news)
+        router.register_post('/api/news/mark-read', news_api.mark_as_read)
+        router.register_post('/api/config', config_api.update_config)
 
     def stop(self):
         if self._server:

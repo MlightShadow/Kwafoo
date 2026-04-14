@@ -1,5 +1,6 @@
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from abc import ABC, abstractmethod
 from utils.logger import logger
 try:
     import tomllib
@@ -27,18 +28,64 @@ except ImportError:
     pass
 
 
-class Config:
-    _instance = None
-    _config = None
+class ConfigObserver(ABC):
+    """配置观察者抽象基类"""
+    
+    @abstractmethod
+    def on_config_changed(self, config: Dict[str, Any]):
+        """
+        配置更新回调
+        
+        Args:
+            config: 更新后的配置字典
+        """
+        pass
 
-    def __new__(cls):
+
+class Config:
+    _instance: Optional['Config'] = None
+    _config: Optional[Dict[str, Any]] = None
+    _observers: List[ConfigObserver] = []
+
+    def __new__(cls) -> 'Config':
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         if self._config is None:
             self._config = self._load_config()
+
+    def add_observer(self, observer: ConfigObserver):
+        """
+        添加配置观察者
+        
+        Args:
+            observer: 观察者对象
+        """
+        if observer not in self._observers:
+            self._observers.append(observer)
+            logger.debug(f"添加配置观察者: {observer.__class__.__name__}")
+
+    def remove_observer(self, observer: ConfigObserver):
+        """
+        移除配置观察者
+        
+        Args:
+            observer: 观察者对象
+        """
+        if observer in self._observers:
+            self._observers.remove(observer)
+            logger.debug(f"移除配置观察者: {observer.__class__.__name__}")
+
+    def notify_observers(self):
+        """通知所有观察者配置已更新"""
+        logger.debug(f"通知 {len(self._observers)} 个配置观察者")
+        for observer in self._observers:
+            try:
+                observer.on_config_changed(self._config)
+            except Exception as e:
+                logger.error(f"通知观察者 {observer.__class__.__name__} 失败: {e}")
 
     def _load_config(self, config_path: str = 'config.toml') -> Dict[str, Any]:
         try:
@@ -207,8 +254,12 @@ class Config:
             logger.error(f"配置文件保存失败: {e}")
 
     def reload(self):
+        """
+        重新加载配置文件并通知所有观察者
+        """
         self._config = self._load_config()
         logger.info("配置文件重新加载")
+        self.notify_observers()
 
     def get_config_path(self) -> str:
         return 'config.toml'

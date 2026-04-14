@@ -5,7 +5,7 @@ from typing import Dict, Any, List, Optional, NamedTuple
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.logger import logger
-from utils.helpers import config
+from utils.helpers import config, ConfigObserver
 from utils.progress import progress_monitor
 from database import db
 from fetcher.rss_fetcher import rss_fetcher
@@ -22,24 +22,39 @@ class FetchResult(NamedTuple):
     error: Optional[str] = None
 
 
-class Scheduler:
-    def __init__(self):
-        self.running = False
-        self.thread = None
-        self.fetch_interval = config.get('scheduler.fetch_interval', 1800)
-        self.ai_process_interval = config.get('scheduler.ai_process_interval', 600)
-        self.auto_fetch = config.get('scheduler.auto_fetch', False)
-        self.auto_ai_process = config.get('scheduler.auto_ai_process', False)
-        self.auto_ai_after_fetch = config.get('scheduler.auto_ai_after_fetch', False)
-        self.max_fetch_workers = config.get('scheduler.max_fetch_workers', 20)
+class Scheduler(ConfigObserver):
+    def __init__(self) -> None:
+        self.running: bool = False
+        self.thread: Optional[threading.Thread] = None
+        self.fetch_interval: int = config.get('scheduler.fetch_interval', 1800)
+        self.ai_process_interval: int = config.get('scheduler.ai_process_interval', 600)
+        self.auto_fetch: bool = config.get('scheduler.auto_fetch', False)
+        self.auto_ai_process: bool = config.get('scheduler.auto_ai_process', False)
+        self.auto_ai_after_fetch: bool = config.get('scheduler.auto_ai_after_fetch', False)
+        self.max_fetch_workers: int = config.get('scheduler.max_fetch_workers', 20)
         
         # 任务运行状态
-        self.fetching = False
-        self.ai_processing = False
+        self.fetching: bool = False
+        self.ai_processing: bool = False
+        
+        # 使用锁保护共享状态
+        self._fetching_lock: threading.Lock = threading.Lock()
+        self._ai_processing_lock: threading.Lock = threading.Lock()
         
         # 队列处理器
-        self.queue_processor_thread = None
-        self.queue_processor_running = False
+        self.queue_processor_thread: Optional[threading.Thread] = None
+        self.queue_processor_running: bool = False
+        
+        # 注册为配置观察者
+        config.add_observer(self)
+        
+        # 根据配置决定是否启用自动任务
+        self._setup_scheduled_tasks()
+        
+    def _setup_scheduled_tasks(self):
+        """根据配置设置定时任务"""
+        # 清除所有定时任务
+        schedule.clear()
         
         # 根据配置决定是否启用自动任务
         if self.auto_fetch:
@@ -55,6 +70,25 @@ class Scheduler:
             logger.info("自动AI分析已禁用，可通过管理界面手动触发")
         
         logger.info(f"抓取完成后自动AI分析: {'启用' if self.auto_ai_after_fetch else '禁用'}")
+
+    def on_config_changed(self, config: Dict[str, Any]):
+        """
+        配置更新回调
+        
+        Args:
+            config: 更新后的配置字典
+        """
+        logger.info("Scheduler配置已更新")
+        scheduler_config = config.get('scheduler', {})
+        self.fetch_interval = scheduler_config.get('fetch_interval', 1800)
+        self.ai_process_interval = scheduler_config.get('ai_process_interval', 600)
+        self.auto_fetch = scheduler_config.get('auto_fetch', False)
+        self.auto_ai_process = scheduler_config.get('auto_ai_process', False)
+        self.auto_ai_after_fetch = scheduler_config.get('auto_ai_after_fetch', False)
+        self.max_fetch_workers = scheduler_config.get('max_fetch_workers', 20)
+        
+        # 重新设置定时任务
+        self._setup_scheduled_tasks()
 
     def start(self):
         if self.running:
@@ -81,18 +115,23 @@ class Scheduler:
 
     def fetch_news_async(self):
         """异步执行新闻抓取任务"""
-        if self.fetching:
-            logger.warning("新闻抓取任务正在运行中，忽略重复请求")
-            return False
+        # 使用锁保护fetching状态的检查和设置
+        with self._fetching_lock:
+            if self.fetching:
+                logger.warning("新闻抓取任务正在运行中，忽略重复请求")
+                return False
+            
+            self.fetching = True
         
         def run_fetch():
             try:
                 self.fetch_news()
             finally:
-                self.fetching = False
+                # 使用锁保护fetching状态的设置
+                with self._fetching_lock:
+                    self.fetching = False
         
         # 在新线程中执行，不阻塞主线程
-        self.fetching = True
         thread = threading.Thread(target=run_fetch, daemon=True)
         thread.start()
         logger.info("新闻抓取任务已启动（异步）")
@@ -222,9 +261,13 @@ class Scheduler:
 
     def process_ai_news_async(self, manual: bool = False):
         """异步执行AI分析任务"""
-        if self.ai_processing:
-            logger.warning("AI分析任务正在运行中，忽略重复请求")
-            return False
+        # 使用锁保护ai_processing状态的检查和设置
+        with self._ai_processing_lock:
+            if self.ai_processing:
+                logger.warning("AI分析任务正在运行中，忽略重复请求")
+                return False
+            
+            self.ai_processing = True
         
         def run_ai_process():
             try:
@@ -233,10 +276,11 @@ class Scheduler:
                 else:
                     self.process_ai_news()
             finally:
-                self.ai_processing = False
+                # 使用锁保护ai_processing状态的设置
+                with self._ai_processing_lock:
+                    self.ai_processing = False
         
         # 在新线程中执行，不阻塞主线程
-        self.ai_processing = True
         thread = threading.Thread(target=run_ai_process, daemon=True)
         thread.start()
         logger.info(f"AI分析任务已启动（异步），手动={manual}")

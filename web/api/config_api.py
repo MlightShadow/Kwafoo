@@ -7,6 +7,7 @@ from typing import Dict, Any
 from utils.logger import logger
 from utils.helpers import config, get_categories, get_default_category
 from utils.config_validator import ConfigValidator, ConfigValidationError
+from utils.validators import validate_update_config_params, UpdateConfigParams
 
 
 class ConfigAPI:
@@ -36,14 +37,11 @@ class ConfigAPI:
             logger.error(f"获取配置失败: {e}")
             handler._send_error_response(str(e))
 
-    def update_config(self, handler):
+    @validate_update_config_params
+    def update_config(self, handler, params: UpdateConfigParams):
         """更新配置"""
         try:
             import toml
-            content_length = int(handler.headers['Content-Length'])
-            post_data = handler.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-            
             config_path = config.get_config_path()
             
             # 读取当前配置
@@ -53,7 +51,7 @@ class ConfigAPI:
                     current_config = toml.load(f)
             
             # 更新配置
-            for key, value in data.items():
+            for key, value in params.config.items():
                 if key in ['categories', 'default_category', 'enable_ai_category', 'image_display']:
                     current_config[key] = value
             

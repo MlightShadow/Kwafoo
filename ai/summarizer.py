@@ -1,7 +1,7 @@
 import requests
 from typing import Optional, Dict, Any
 from utils.logger import logger
-from utils.helpers import config
+from utils.helpers import config, ConfigObserver
 
 
 def contains_chinese(text: str) -> bool:
@@ -81,17 +81,37 @@ def smart_truncate(text: str, max_length: int = 2000) -> str:
             return text[:max_length]
 
 
-class AISummarizer:
-    def __init__(self):
-        self.base_url = config.get('ai.base_url', 'http://localhost:1234')
-        self.model = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
-        self.max_tokens = config.get('ai.max_tokens', 4096)
-        self.temperature = config.get('ai.temperature', 0.7)
+class AISummarizer(ConfigObserver):
+    def __init__(self) -> None:
+        self.base_url: str = config.get('ai.base_url', 'http://localhost:1234')
+        self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
+        self.max_tokens: int = config.get('ai.max_tokens', 4096)
+        self.temperature: float = config.get('ai.temperature', 0.7)
         
         # 从配置中读取AI摘要阈值
+        self.description_threshold: int = config.get('ai_summary_threshold', 140)
+        self.max_input_length: int = config.get('ai.max_input_length', 2000)
+        self.timeout: int = config.get('ai.timeout', 120)
+        
+        # 注册为配置观察者
+        config.add_observer(self)
+
+    def on_config_changed(self, config: Dict[str, Any]):
+        """
+        配置更新回调
+        
+        Args:
+            config: 更新后的配置字典
+        """
+        logger.info("AISummarizer配置已更新")
+        ai_config = config.get('ai', {})
+        self.base_url = ai_config.get('base_url', 'http://localhost:1234')
+        self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
+        self.max_tokens = ai_config.get('max_tokens', 4096)
+        self.temperature = ai_config.get('temperature', 0.7)
         self.description_threshold = config.get('ai_summary_threshold', 140)
-        self.max_input_length = 2000  # 智能截取后不超过2000字
-        self.timeout = 120  # 增加超时时间到120秒
+        self.max_input_length = ai_config.get('max_input_length', 2000)
+        self.timeout = ai_config.get('timeout', 120)
 
     def generate_summary(self, content: str, description: Optional[str] = None) -> Optional[str]:
         try:

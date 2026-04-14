@@ -17,6 +17,9 @@ class AINewsProcessor:
         self.processing = False
         self.processed_count = 0
         self.failed_count = 0
+        
+        # 使用锁保护共享状态
+        self._lock = threading.Lock()
 
     def process_news(self, news_id: int, news_data: Dict[str, Any], manual: bool = False) -> Dict[str, Any]:
         try:
@@ -116,30 +119,40 @@ class AINewsProcessor:
         
         return results
 
-    def process_all_unprocessed(self, task_id: str = None) -> Dict[str, Any]:
-        # 检查配置，如果AI分类和摘要都未启用，则不执行
-        if not self.enable_ai_category and not self.enable_ai_summary:
+    def process_all_unprocessed(self, task_id: str = None, manual: bool = False) -> Dict[str, Any]:
+        """
+        处理所有未处理的新闻
+        
+        Args:
+            task_id: 任务ID，用于进度监控
+            manual: 是否为手动执行，手动执行不受配置限制
+            
+        Returns:
+            处理结果字典
+        """
+        # 检查配置，如果AI分类和摘要都未启用，则不执行（仅对自动执行）
+        if not manual and not self.enable_ai_category and not self.enable_ai_summary:
             logger.info("AI分类和摘要均未启用，跳过自动处理")
             return {
                 'status': 'skipped',
                 'message': 'AI分类和摘要均未启用'
             }
         
-        if self.processing:
-            logger.warning("AI处理器正在运行中")
-            return {
-                'status': 'running',
-                'message': 'AI处理器正在运行中'
-            }
+        # 使用锁保护processing状态的检查和设置
+        with self._lock:
+            if self.processing:
+                logger.warning("AI处理器正在运行中")
+                return {
+                    'status': 'running',
+                    'message': 'AI处理器正在运行中'
+                }
+            
+            self.processing = True
+            self.processed_count = 0
+            self.failed_count = 0
         
-        self.processing = True
-        self.processed_count = 0
-        self.failed_count = 0
-        
-        # 导入 progress_monitor
-        from utils.progress import progress_monitor
-        
-        logger.info("开始处理未处理的新闻（自动执行）")
+        execution_type = "手动执行" if manual else "自动执行"
+        logger.info(f"开始处理未处理的新闻（{execution_type}）")
         
         try:
             # 先获取所有未处理的新闻总数
@@ -169,10 +182,10 @@ class AINewsProcessor:
                     logger.info("没有更多未处理的新闻")
                     break
                 
-                logger.info(f"处理批次: {len(news_list)} 条新闻")
+                logger.info(f"开始处理批次: {len(news_list)} 条新闻")
                 
-                # 自动执行，manual=False，受配置控制
-                batch_result = self.process_batch(news_list, manual=False)
+                # 根据manual参数决定是否受配置控制
+                batch_result = self.process_batch(news_list, manual=manual)
                 
                 total_processed += batch_result['total']
                 total_success += batch_result['success']
@@ -180,13 +193,13 @@ class AINewsProcessor:
                 
                 # 更新进度
                 progress = int((total_processed / total_news) * 100)
-                logger.info(f"AI处理进度: {progress}% ({total_processed}/{total_news})")
+                logger.debug(f"AI处理进度: {progress}% ({total_processed}/{total_news})")
                 
                 # 如果提供了task_id，更新进度监控
                 if task_id:
                     progress_monitor.update_progress(task_id, progress, f"已处理 {total_processed}/{total_news} 条新闻")
                 
-                logger.info(
+                logger.debug(
                     f"批次完成: 成功={batch_result['success']}, "
                     f"失败={batch_result['failed']}"
                 )
@@ -200,7 +213,7 @@ class AINewsProcessor:
                 'failed': total_failed
             }
             
-            logger.info(f"AI处理完成: {result}")
+            logger.info(f"AI处理完成（{execution_type}）: {result}")
             return result
             
         except Exception as e:
@@ -210,96 +223,9 @@ class AINewsProcessor:
                 'error': str(e)
             }
         finally:
-            self.processing = False
-
-    def process_all_unprocessed_manual(self, task_id: str = None) -> Dict[str, Any]:
-        """手动处理所有未处理的新闻，不受配置限制"""
-        if self.processing:
-            logger.warning("AI处理器正在运行中")
-            return {
-                'status': 'running',
-                'message': 'AI处理器正在运行中'
-            }
-        
-        self.processing = True
-        self.processed_count = 0
-        self.failed_count = 0
-        
-        # 导入 progress_monitor
-        from utils.progress import progress_monitor
-        
-        logger.info("开始处理未处理的新闻（手动执行，不受配置限制）")
-        
-        try:
-            # 先获取所有未处理的新闻总数
-            all_unprocessed = db.get_unprocessed_news(limit=10000)
-            total_news = len(all_unprocessed)
-            
-            if total_news == 0:
-                logger.info("没有未处理的新闻")
-                return {
-                    'status': 'completed',
-                    'total': 0,
-                    'success': 0,
-                    'failed': 0
-                }
-            
-            logger.info(f"总共需要处理 {total_news} 条新闻")
-            
-            total_processed = 0
-            total_success = 0
-            total_failed = 0
-            
-            batch_index = 0
-            while True:
-                news_list = db.get_unprocessed_news(self.batch_size)
-                
-                if not news_list:
-                    logger.info("没有更多未处理的新闻")
-                    break
-                
-                logger.info(f"处理批次: {len(news_list)} 条新闻")
-                
-                # 手动执行，manual=True，不受配置限制
-                batch_result = self.process_batch(news_list, manual=True)
-                
-                total_processed += batch_result['total']
-                total_success += batch_result['success']
-                total_failed += batch_result['failed']
-                
-                # 更新进度
-                progress = int((total_processed / total_news) * 100)
-                logger.info(f"AI处理进度: {progress}% ({total_processed}/{total_news})")
-                
-                # 如果提供了task_id，更新进度监控
-                if task_id:
-                    progress_monitor.update_progress(task_id, progress, f"已处理 {total_processed}/{total_news} 条新闻")
-                
-                logger.info(
-                    f"批次完成: 成功={batch_result['success']}, "
-                    f"失败={batch_result['failed']}"
-                )
-                
-                batch_index += 1
-            
-            result = {
-                'status': 'completed',
-                'total': total_processed,
-                'success': total_success,
-                'failed': total_failed
-            }
-            
-            logger.info(f"AI处理完成（手动执行）: {result}")
-            return result
-            
-        except Exception as e:
-            logger.error(f"AI处理失败: {e}")
-            return {
-                'status': 'error',
-                'error': str(e)
-            }
-        finally:
-            self.processing = False
+            # 使用锁保护processing状态的设置
+            with self._lock:
+                self.processing = False
 
     def process_single_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """

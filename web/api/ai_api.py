@@ -4,6 +4,13 @@ AI相关API模块
 from typing import Dict, Any
 from utils.logger import logger
 from ai.processor import ai_news_processor
+from utils.validators import (
+    validate_process_news_params,
+    validate_process_news_category_params,
+    validate_process_news_summary_params,
+    validate_process_news_reanalyze_params,
+    ProcessNewsParams
+)
 
 
 class AIAPI:
@@ -73,37 +80,26 @@ class AIAPI:
             logger.error(f"获取AI队列统计失败: {e}")
             handler._send_error_response(str(e))
 
-    def process_single_news_ai(self, handler):
+    @validate_process_news_params
+    def process_single_news_ai(self, handler, params: ProcessNewsParams):
         """
         将单条新闻添加到AI队列
         """
         try:
-            import json
             from database import db
 
-            content_length = int(handler.headers['Content-Length'])
-            post_data = handler.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-
-            news_id = data.get('news_id')
-            force = data.get('force', False)
-
-            if not news_id:
-                handler._send_error_response("缺少news_id参数")
-                return
-
             # 检查新闻是否存在
-            news_list = db.get_news_by_id(news_id)
+            news_list = db.get_news_by_id(params.news_id)
             if not news_list:
                 handler._send_error_response("新闻不存在")
                 return
 
             # 如果强制重新处理，先清除AI处理状态
-            if force:
-                db.clear_ai_status(news_id)
+            if params.force:
+                db.clear_ai_status(params.news_id)
 
             # 添加到AI队列
-            task_id = db.add_to_ai_queue(news_id, 'all', priority=1)
+            task_id = db.add_to_ai_queue(params.news_id, 'all', priority=1)
 
             if task_id > 0:
                 handler._send_json_response({
@@ -116,32 +112,22 @@ class AIAPI:
             logger.error(f"添加单条新闻到AI队列失败: {e}")
             handler._send_error_response(str(e))
 
-    def process_news_category(self, handler):
+    @validate_process_news_category_params
+    def process_news_category(self, handler, params: ProcessNewsParams):
         """
         对单条新闻进行AI分类
         """
         try:
-            import json
             from database import db
 
-            content_length = int(handler.headers['Content-Length'])
-            post_data = handler.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-
-            news_id = data.get('news_id')
-
-            if not news_id:
-                handler._send_error_response("缺少news_id参数")
-                return
-
             # 检查新闻是否存在
-            news_list = db.get_news_by_id(news_id)
+            news_list = db.get_news_by_id(params.news_id)
             if not news_list:
                 handler._send_error_response("新闻不存在")
                 return
 
             # 添加到AI队列（分类任务）
-            task_id = db.add_to_ai_queue(news_id, 'category', priority=1)
+            task_id = db.add_to_ai_queue(params.news_id, 'category', priority=1)
 
             if task_id > 0:
                 handler._send_json_response({
@@ -154,32 +140,22 @@ class AIAPI:
             logger.error(f"添加新闻分类任务失败: {e}")
             handler._send_error_response(str(e))
 
-    def process_news_summary(self, handler):
+    @validate_process_news_summary_params
+    def process_news_summary(self, handler, params: ProcessNewsParams):
         """
         对单条新闻进行AI摘要
         """
         try:
-            import json
             from database import db
 
-            content_length = int(handler.headers['Content-Length'])
-            post_data = handler.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-
-            news_id = data.get('news_id')
-
-            if not news_id:
-                handler._send_error_response("缺少news_id参数")
-                return
-
             # 检查新闻是否存在
-            news_list = db.get_news_by_id(news_id)
+            news_list = db.get_news_by_id(params.news_id)
             if not news_list:
                 handler._send_error_response("新闻不存在")
                 return
 
             # 添加到AI队列（摘要任务）
-            task_id = db.add_to_ai_queue(news_id, 'summary', priority=1)
+            task_id = db.add_to_ai_queue(params.news_id, 'summary', priority=1)
 
             if task_id > 0:
                 handler._send_json_response({
@@ -192,37 +168,26 @@ class AIAPI:
             logger.error(f"添加新闻摘要任务失败: {e}")
             handler._send_error_response(str(e))
 
-    def process_news_reanalyze(self, handler):
+    @validate_process_news_reanalyze_params
+    def process_news_reanalyze(self, handler, params: ProcessNewsParams):
         """
         重新分析单条新闻（分类+摘要）
         """
         try:
-            import json
             from database import db
 
-            content_length = int(handler.headers['Content-Length'])
-            post_data = handler.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-
-            news_id = data.get('news_id')
-            force = data.get('force', False)
-
-            if not news_id:
-                handler._send_error_response("缺少news_id参数")
-                return
-
             # 检查新闻是否存在
-            news_list = db.get_news_by_id(news_id)
+            news_list = db.get_news_by_id(params.news_id)
             if not news_list:
                 handler._send_error_response("新闻不存在")
                 return
 
             # 如果强制重新处理，先清除AI处理状态
-            if force:
-                db.clear_ai_status(news_id)
+            if params.force:
+                db.clear_ai_status(params.news_id)
 
             # 添加到AI队列（完整分析任务）
-            task_id = db.add_to_ai_queue(news_id, 'all', priority=1)
+            task_id = db.add_to_ai_queue(params.news_id, 'all', priority=1)
 
             if task_id > 0:
                 handler._send_json_response({

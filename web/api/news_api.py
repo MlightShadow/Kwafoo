@@ -5,78 +5,71 @@ from typing import Dict, Any, List
 from datetime import datetime
 from utils.logger import logger
 from database import db
+from utils.validators import (
+    validate_get_news_params,
+    validate_search_news_params,
+    validate_get_news_by_category_params,
+    validate_mark_as_read_params,
+    validate_get_read_news_params,
+    validate_get_unread_news_params,
+    GetNewsParams,
+    SearchNewsParams,
+    GetNewsByCategoryParams,
+    MarkAsReadParams,
+    GetReadNewsParams,
+    GetUnreadNewsParams
+)
 
 
 class NewsAPI:
     """新闻API处理器"""
     
-    def get_news(self, handler):
+    @validate_get_news_params
+    def get_news(self, handler, params: GetNewsParams):
         """获取全部新闻"""
         try:
-            from urllib.parse import parse_qs, urlparse
-            params = parse_qs(urlparse(handler.path).query)
-            limit = int(params.get('limit', [30])[0])
-            offset = int(params.get('offset', [0])[0])
-            
-            news_list = db.get_news_by_category('全部', limit=limit, offset=offset)
+            news_list = db.get_news_by_category('全部', limit=params.limit, offset=params.offset)
             
             handler._send_json_response({
                 'success': True,
                 'data': news_list,
                 'count': len(news_list),
-                'limit': limit,
-                'offset': offset
+                'limit': params.limit,
+                'offset': params.offset
             })
         except Exception as e:
             logger.error(f"获取新闻失败: {e}")
             handler._send_error_response(str(e))
 
-    def get_news_by_category(self, handler):
+    @validate_get_news_by_category_params
+    def get_news_by_category(self, handler, params: GetNewsByCategoryParams):
         """按分类获取新闻"""
         try:
-            from urllib.parse import parse_qs, urlparse
-            params = parse_qs(urlparse(handler.path).query)
-            category = params.get('category', [''])[0]
-            limit = int(params.get('limit', [30])[0])
-            offset = int(params.get('offset', [0])[0])
-            
-            if not category:
-                handler._send_error_response("缺少category参数")
-                return
-            
-            news_list = db.get_news_by_category(category, limit=limit, offset=offset)
+            news_list = db.get_news_by_category(params.category, limit=params.limit, offset=params.offset)
             
             handler._send_json_response({
                 'success': True,
                 'data': news_list,
                 'count': len(news_list),
-                'category': category,
-                'limit': limit,
-                'offset': offset
+                'category': params.category,
+                'limit': params.limit,
+                'offset': params.offset
             })
         except Exception as e:
             logger.error(f"获取分类新闻失败: {e}")
             handler._send_error_response(str(e))
 
-    def search_news(self, handler):
+    @validate_search_news_params
+    def search_news(self, handler, params: SearchNewsParams):
         """搜索新闻"""
         try:
-            from urllib.parse import parse_qs, urlparse
-            params = parse_qs(urlparse(handler.path).query)
-            query = params.get('q', [''])[0]
-            limit = int(params.get('limit', [10])[0])
-            
-            if not query:
-                handler._send_error_response("缺少q参数")
-                return
-            
-            news_list = db.search_news(query, limit)
+            news_list = db.search_news(params.q, limit=params.limit)
             
             handler._send_json_response({
                 'success': True,
                 'data': news_list,
                 'count': len(news_list),
-                'query': query
+                'query': params.q
             })
         except Exception as e:
             logger.error(f"搜索新闻失败: {e}")
@@ -109,23 +102,13 @@ class NewsAPI:
             logger.error(f"清空新闻失败: {e}")
             handler._send_error_response(str(e))
 
-    def mark_as_read(self, handler):
+    @validate_mark_as_read_params
+    def mark_as_read(self, handler, params: MarkAsReadParams):
         """
         标记新闻为已读
         """
         try:
-            import json
-            content_length = int(handler.headers['Content-Length'])
-            post_data = handler.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
-
-            news_id = data.get('news_id')
-
-            if not news_id:
-                handler._send_error_response("缺少news_id参数")
-                return
-
-            success = db.mark_news_as_read(news_id)
+            success = db.mark_news_as_read(params.news_id)
 
             if success:
                 handler._send_json_response({
@@ -138,16 +121,13 @@ class NewsAPI:
             logger.error(f"标记新闻为已读失败: {e}")
             handler._send_error_response(str(e))
 
-    def get_read_news(self, handler):
+    @validate_get_read_news_params
+    def get_read_news(self, handler, params: GetReadNewsParams):
         """
         获取已读新闻
         """
         try:
-            from urllib.parse import parse_qs, urlparse
-            params = parse_qs(urlparse(handler.path).query)
-            limit = int(params.get('limit', ['100'])[0])
-
-            news_list = db.get_read_news(limit)
+            news_list = db.get_read_news(params.limit)
 
             handler._send_json_response({
                 'success': True,
@@ -158,16 +138,13 @@ class NewsAPI:
             logger.error(f"获取已读新闻失败: {e}")
             handler._send_error_response(str(e))
 
-    def get_unread_news(self, handler):
+    @validate_get_unread_news_params
+    def get_unread_news(self, handler, params: GetUnreadNewsParams):
         """
         获取未读新闻
         """
         try:
-            from urllib.parse import parse_qs, urlparse
-            params = parse_qs(urlparse(handler.path).query)
-            limit = int(params.get('limit', ['100'])[0])
-
-            news_list = db.get_unread_news(limit)
+            news_list = db.get_unread_news(params.limit)
 
             handler._send_json_response({
                 'success': True,

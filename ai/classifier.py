@@ -1,22 +1,46 @@
 import requests
 from typing import List, Optional, Dict, Any
 from utils.logger import logger
-from utils.helpers import config, get_category_names, get_default_category
+from utils.helpers import config, get_category_names, get_default_category, ConfigObserver
 
 
-class AIClassifier:
-    def __init__(self):
-        self.base_url = config.get('ai.base_url', 'http://localhost:1234')
-        self.model = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
-        self.max_tokens = config.get('ai.max_tokens', 4096)
-        self.temperature = config.get('ai.temperature', 0.7)
+class AIClassifier(ConfigObserver):
+    def __init__(self) -> None:
+        self.base_url: str = config.get('ai.base_url', 'http://localhost:1234')
+        self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
+        self.max_tokens: int = config.get('ai.max_tokens', 4096)
+        self.temperature: float = config.get('ai.temperature', 0.7)
         
+        self.categories: List[str] = get_category_names()
+        self.categories_config: List[Dict[str, Any]] = config.get('categories', [])
+        self.default_category: str = get_default_category()
+        
+        self.max_input_length: int = config.get('ai.max_input_length', 800)
+        self.timeout: int = config.get('ai.timeout', 120)
+        
+        # 注册为配置观察者
+        config.add_observer(self)
+
+    def on_config_changed(self, config: Dict[str, Any]):
+        """
+        配置更新回调
+        
+        Args:
+            config: 更新后的配置字典
+        """
+        logger.info("AIClassifier配置已更新")
+        ai_config = config.get('ai', {})
+        self.base_url = ai_config.get('base_url', 'http://localhost:1234')
+        self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
+        self.max_tokens = ai_config.get('max_tokens', 4096)
+        self.temperature = ai_config.get('temperature', 0.7)
+        self.max_input_length = ai_config.get('max_input_length', 800)
+        self.timeout = ai_config.get('timeout', 120)
+        
+        # 更新分类信息
         self.categories = get_category_names()
         self.categories_config = config.get('categories', [])
         self.default_category = get_default_category()
-        
-        self.max_input_length = 800
-        self.timeout = 120  # 增加到120秒，给AI更多推理时间
 
     def classify(self, title: str, description: str, 
                  source_category: str = None) -> Optional[List[str]]:
@@ -79,11 +103,11 @@ class AIClassifier:
             # 记录完整的响应以便诊断
             if 'choices' in data and len(data['choices']) > 0:
                 message = data['choices'][0]['message']
-                logger.info(f"AI分类message keys: {list(message.keys())}")
+                logger.debug(f"AI分类message keys: {list(message.keys())}")
                 if 'content' in message:
-                    logger.info(f"AI分类content长度: {len(message['content'])}")
+                    logger.debug(f"AI分类content长度: {len(message['content'])}")
                 if 'reasoning_content' in message:
-                    logger.info(f"AI分类reasoning_content长度: {len(message['reasoning_content'])}")
+                    logger.debug(f"AI分类reasoning_content长度: {len(message['reasoning_content'])}")
             
             if 'choices' not in data or len(data['choices']) == 0:
                 logger.error("AI分类响应格式错误: 缺少choices字段")
@@ -91,8 +115,8 @@ class AIClassifier:
             
             result = data['choices'][0]['message']['content'].strip()
             
-            logger.info(f"AI分类原始返回内容: '{result}'")
-            logger.info(f"AI分类返回长度: {len(result)}")
+            logger.debug(f"AI分类原始返回内容: '{result}'")
+            logger.debug(f"AI分类返回长度: {len(result)}")
             
             # 如果content为空，尝试从reasoning_content中提取
             if not result:
@@ -124,8 +148,8 @@ class AIClassifier:
                         # 放宽条件：只要有分类且行不太长就认为是结果
                         if potential_cats and len(line) < 150:
                             result = ','.join(sorted(potential_cats))
-                            logger.info(f"从reasoning_content提取到分类: {result}")
-                            logger.info(f"提取的行: {line}")
+                            logger.debug(f"从reasoning_content提取到分类: {result}")
+                            logger.debug(f"提取的行: {line}")
                             break
             
             logger.debug(f"AI分类处理后结果: '{result}'")

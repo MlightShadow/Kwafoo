@@ -28,20 +28,8 @@ enabled = true
 fetch_days = 2
 
 [[news_sources.rss]]
-url = "https://www.appinn.com/feed/"
-name = "小众软件"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
 url = "https://36kr.com/feed"
 name = "36氪"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
-url = "https://rss.huxiu.com/"
-name = "虎嗅"
 enabled = true
 fetch_days = 2
 
@@ -72,12 +60,6 @@ fetch_days = 2
 [[news_sources.rss]]
 url = "https://xueqiu.com/hots/topic/rss"
 name = "今日话题 - 雪球"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
-url = "https://www.tmtpost.com/feed"
-name = "钛媒体：引领未来商业与生活新知"
 enabled = true
 fetch_days = 2
 
@@ -119,6 +101,9 @@ temperature = 0.7
 max_workers = 1
 batch_size = 1
 enable_summary = true
+summary_threshold = 140
+max_input_length = 2000
+timeout = 120
 
 [server]
 host = "0.0.0.0"

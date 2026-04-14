@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import base64
+import threading
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 from utils.logger import logger
@@ -10,27 +11,88 @@ from utils.image_processor import image_processor
 
 class DatabaseManager:
     _instance = None
-    _connection = None
-
+    _thread_local = threading.local()
+    
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
-        if self._connection is None:
-            self._connect()
+        pass
 
     def _connect(self):
+        """连接数据库"""
         db_path = config.get('database.path', 'data/kwafoo.db')
         db_dir = os.path.dirname(db_path)
         
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir)
         
-        self._connection = sqlite3.connect(db_path, check_same_thread=False)
-        self._connection.row_factory = sqlite3.Row
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        connection.row_factory = sqlite3.Row
         logger.info(f"数据库连接成功: {db_path}")
+        return connection
+
+    @property
+    def _connection(self) -> sqlite3.Connection:
+        """获取当前线程的数据库连接"""
+        if not hasattr(self._thread_local, 'connection') or self._thread_local.connection is None:
+            self._thread_local.connection = self._connect()
+        return self._thread_local.connection
+
+    def _check_connection_health(self, connection: sqlite3.Connection) -> bool:
+        """检查连接是否健康
+        
+        Args:
+            connection: 数据库连接
+            
+        Returns:
+            连接是否健康
+        """
+        try:
+            cursor = connection.cursor()
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+            return True
+        except Exception as e:
+            logger.warning(f"数据库连接健康检查失败: {e}")
+            return False
+
+    def _reconnect(self) -> bool:
+        """重新连接数据库
+        
+        Returns:
+            是否重连成功
+        """
+        try:
+            if hasattr(self._thread_local, 'connection') and self._thread_local.connection:
+                try:
+                    self._thread_local.connection.close()
+                except Exception as e:
+                    logger.warning(f"关闭旧连接失败: {e}")
+            
+            self._thread_local.connection = self._connect()
+            logger.info("数据库重连成功")
+            return True
+        except Exception as e:
+            logger.error(f"数据库重连失败: {e}")
+            return False
+
+    def _ensure_connection(self) -> sqlite3.Connection:
+        """确保连接可用，如果不可用则重连
+        
+        Returns:
+            可用的数据库连接
+        """
+        connection = self._connection
+        if not self._check_connection_health(connection):
+            logger.warning("数据库连接不可用，尝试重连")
+            if self._reconnect():
+                return self._connection
+            else:
+                raise Exception("数据库连接失败，重连也不成功")
+        return connection
 
     def create_tables(self):
         cursor = self._connection.cursor()
@@ -890,9 +952,41 @@ class DatabaseManager:
             return []
 
     def close(self):
-        if self._connection:
-            self._connection.close()
+        """关闭当前线程的数据库连接"""
+        if hasattr(self._thread_local, 'connection') and self._thread_local.connection:
+            self._thread_local.connection.close()
+            self._thread_local.connection = None
             logger.info("数据库连接关闭")
+
+    def close_all_connections(self):
+        """关闭所有线程的数据库连接（清理资源）"""
+        try:
+            if hasattr(self._thread_local, 'connection') and self._thread_local.connection:
+                self._thread_local.connection.close()
+                self._thread_local.connection = None
+            logger.info("所有数据库连接已关闭")
+        except Exception as e:
+            logger.error(f"关闭数据库连接失败: {e}")
+
+    def cleanup(self):
+        """清理所有资源"""
+        try:
+            if hasattr(self._thread_local, 'connection') and self._thread_local.connection:
+                self._thread_local.connection.close()
+                self._thread_local.connection = None
+            logger.info("所有数据库连接已关闭")
+        except Exception as e:
+            logger.error(f"关闭数据库连接失败: {e}")
+        logger.info("数据库资源清理完成")
+
+    def __enter__(self):
+        """上下文管理器入口"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """上下文管理器出口"""
+        self.cleanup()
+        return False
 
 
 db = DatabaseManager()
