@@ -25,12 +25,12 @@ class APIClient {
   }
 
   // News API
-  async getNews(): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number }>> {
-    return this.client.get('/news')
+  async getNews(limit: number = 30, offset: number = 0): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number; limit: number; offset: number }>> {
+    return this.client.get(`/news?limit=${limit}&offset=${offset}`)
   }
 
-  async getNewsByCategory(category: string): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number; category: string }>> {
-    return this.client.get(`/news/category?category=${encodeURIComponent(category)}`)
+  async getNewsByCategory(category: string, limit: number = 30, offset: number = 0): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number; category: string; limit: number; offset: number }>> {
+    return this.client.get(`/news/category?category=${encodeURIComponent(category)}&limit=${limit}&offset=${offset}`)
   }
 
   async searchNews(query: string, limit: number = 10): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number; query: string }>> {
@@ -103,6 +103,18 @@ class APIClient {
 
   async processSingleNewsAI(newsId: number, force: boolean = false): Promise<AxiosResponse<{ success: boolean; message: string }>> {
     return this.client.post('/ai/process/single', { news_id: newsId, force })
+  }
+
+  async processNewsCategory(newsId: number): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/ai/process/category', { news_id: newsId })
+  }
+
+  async processNewsSummary(newsId: number): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/ai/process/summary', { news_id: newsId })
+  }
+
+  async processNewsReanalyze(newsId: number): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/ai/process/reanalyze', { news_id: newsId, force: true })
   }
 
   async getAIQueueStats(): Promise<AxiosResponse<{ success: boolean; data: any }>> {

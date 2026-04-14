@@ -41,6 +41,8 @@ def main():
         scheduler.start()
         
         logger.info("启动AI队列处理器...")
+        # 在启动队列处理器之前，清理卡住的任务
+        db.reset_stuck_ai_tasks()
         scheduler.start_queue_processor()
         
         logger.info("启动HTTP服务器...")

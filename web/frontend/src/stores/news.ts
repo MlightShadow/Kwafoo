@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { News, NewsStats } from '@/types/news'
+import type { Category } from '@/types/config'
 import { api } from '@/api'
 
 export const useNewsStore = defineStore('news', () => {
   const newsList = ref<News[]>([])
   const currentCategory = ref<string>('')
-  const categories = ref<Record<string, { icon?: string; color?: string }>>({})
+  const categories = ref<Category[]>([])
   const stats = ref<NewsStats | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -20,19 +21,23 @@ export const useNewsStore = defineStore('news', () => {
 
   const newsCount = computed(() => filteredNews.value.length)
 
-  async function loadNews(category?: string) {
+  async function loadNews(category?: string, limit: number = 30, offset: number = 0) {
     loading.value = true
     error.value = null
     try {
       let response
       if (category && category !== '全部') {
-        response = await api.getNewsByCategory(category)
+        response = await api.getNewsByCategory(category, limit, offset)
       } else {
-        response = await api.getNews()
+        response = await api.getNews(limit, offset)
       }
 
       if (response.data.success) {
-        newsList.value = response.data.data
+        if (offset === 0) {
+          newsList.value = response.data.data
+        } else {
+          newsList.value = [...newsList.value, ...response.data.data]
+        }
       }
     } catch (err: any) {
       error.value = err.message || '加载新闻失败'
@@ -85,7 +90,7 @@ export const useNewsStore = defineStore('news', () => {
     currentCategory.value = category
   }
 
-  function setCategories(cats: Record<string, { icon?: string; color?: string }>) {
+  function setCategories(cats: Category[]) {
     categories.value = cats
   }
 

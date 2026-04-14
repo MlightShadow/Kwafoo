@@ -110,7 +110,7 @@ class ImageProcessor:
     
     def fetch_and_process_image(self, image_url: str) -> Optional[Tuple[str, Optional[bytes]]]:
         """
-        下载并处理图片
+        下载并处理图片（带重试机制）
         
         Args:
             image_url: 图片URL
@@ -130,61 +130,96 @@ class ImageProcessor:
                     return (self.get_image_url(image_url), None)
             
             # 下载图片（根据配置决定是否使用代理）
-            session = requests.Session()
+            max_retries = 3
+            timeout_errors = (requests.Timeout, requests.exceptions.Timeout)
+            http_errors = (requests.HTTPError, requests.exceptions.HTTPError)
             
-            if self.enable_proxy:
-                if self.proxy_url:
-                    # 使用配置的自定义代理
-                    session.proxies = {
-                        'http': self.proxy_url,
-                        'https': self.proxy_url
-                    }
-                    logger.debug(f"使用代理下载图片: {self.proxy_url}")
-                else:
-                    # 使用系统环境变量中的代理
-                    logger.debug("使用系统环境变量代理下载图片")
-            else:
-                # 不启用代理，跟随系统网络设置
-                logger.debug("跟随系统网络设置下载图片")
+            for attempt in range(max_retries):
+                try:
+                    session = requests.Session()
+                    
+                    if self.enable_proxy:
+                        if self.proxy_url:
+                            # 使用配置的自定义代理
+                            session.proxies = {
+                                'http': self.proxy_url,
+                                'https': self.proxy_url
+                            }
+                            logger.debug(f"使用代理下载图片: {self.proxy_url}")
+                        else:
+                            # 使用系统环境变量中的代理
+                            logger.debug("使用系统环境变量代理下载图片")
+                    else:
+                        # 不启用代理，跟随系统网络设置
+                        logger.debug("跟随系统网络设置下载图片")
+                    
+                    response = session.get(image_url, timeout=10, stream=True)
+                    response.raise_for_status()
+                    
+                    # 检查图片大小
+                    content_length = response.headers.get('content-length', 0)
+                    if content_length and int(content_length) > self.max_image_size:
+                        logger.warning(f"图片过大，跳过: {image_url} ({content_length} bytes)")
+                        return (image_url, None)
+                    
+                    # 检查图片格式
+                    content_type = response.headers.get('content-type', '')
+                    if not self._is_supported_format(content_type):
+                        logger.warning(f"不支持的图片格式: {content_type}")
+                        return (image_url, None)
+                    
+                    # 读取图片数据
+                    image_data = response.content
+                    
+                    # 压缩图片
+                    compressed_data = self._compress_image(image_data)
+                    
+                    if compressed_data:
+                        # 根据存储模式处理
+                        if self.storage_mode == 'filesystem':
+                            # 保存到文件系统
+                            self.save_to_filesystem(compressed_data, image_url)
+                            return (self.get_image_url(image_url), None)
+                        else:
+                            # 返回压缩后的数据（用于数据库存储）
+                            logger.info(f"图片处理成功: {image_url} -> {len(compressed_data)} bytes")
+                            return (image_url, compressed_data)
+                
+                except timeout_errors as e:
+                    # 超时错误，进行重试
+                    if attempt < max_retries - 1:
+                        retry_delay = 2 ** attempt  # 指数退避：2秒、4秒
+                        logger.warning(f"图片下载超时，第{attempt + 1}次重试，{retry_delay}秒后重试: {image_url}")
+                        import time
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        logger.error(f"图片下载超时，已达最大重试次数: {image_url}")
+                        return (image_url, None)
+                
+                except http_errors as e:
+                    # HTTP错误（400、500等），不重试
+                    status_code = e.response.status_code if hasattr(e, 'response') and e.response else 'unknown'
+                    logger.warning(f"图片下载HTTP错误，不重试: {image_url} - 状态码: {status_code}")
+                    return (image_url, None)
+                
+                except requests.RequestException as e:
+                    # 其他请求错误
+                    if attempt < max_retries - 1:
+                        retry_delay = 2 ** attempt
+                        logger.warning(f"图片下载失败，第{attempt + 1}次重试，{retry_delay}秒后重试: {image_url} - {e}")
+                        import time
+                        time.sleep(retry_delay)
+                        continue
+                    else:
+                        logger.error(f"图片下载失败，已达最大重试次数: {image_url} - {e}")
+                        return (image_url, None)
             
-            response = session.get(image_url, timeout=10, stream=True)
-            response.raise_for_status()
+            return (image_url, None)
             
-            # 检查图片大小
-            content_length = response.headers.get('content-length', 0)
-            if content_length and int(content_length) > self.max_image_size:
-                logger.warning(f"图片过大，跳过: {image_url} ({content_length} bytes)")
-                return (image_url, None)
-            
-            # 检查图片格式
-            content_type = response.headers.get('content-type', '')
-            if not self._is_supported_format(content_type):
-                logger.warning(f"不支持的图片格式: {content_type}")
-                return (image_url, None)
-            
-            # 读取图片数据
-            image_data = response.content
-            
-            # 压缩图片
-            compressed_data = self._compress_image(image_data)
-            
-            if compressed_data:
-                # 根据存储模式处理
-                if self.storage_mode == 'filesystem':
-                    # 保存到文件系统
-                    self.save_to_filesystem(compressed_data, image_url)
-                    return (self.get_image_url(image_url), None)
-                else:
-                    # 返回压缩后的数据（用于数据库存储）
-                    logger.info(f"图片处理成功: {image_url} -> {len(compressed_data)} bytes")
-                    return (image_url, compressed_data)
-            
-        except requests.RequestException as e:
-            logger.error(f"下载图片失败: {image_url} - {e}")
         except Exception as e:
             logger.error(f"处理图片失败: {image_url} - {e}")
-        
-        return (image_url, None)
+            return (image_url, None)
     
     def _is_supported_format(self, content_type: str) -> bool:
         """检查图片格式是否支持"""

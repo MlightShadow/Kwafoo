@@ -144,11 +144,26 @@ class AISummarizer:
                 "temperature": self.temperature
             }
             
-            response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
-                json=payload,
-                timeout=self.timeout
-            )
+            logger.debug(f"AI摘要请求: {self.base_url}/v1/chat/completions")
+            logger.debug(f"AI摘要超时设置: {self.timeout}秒")
+            
+            try:
+                response = requests.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload,
+                    timeout=self.timeout
+                )
+            except requests.Timeout:
+                logger.error(f"AI摘要请求超时（{self.timeout}秒）")
+                return None
+            except requests.ConnectionError as e:
+                logger.error(f"AI摘要连接失败: {e}")
+                return None
+            except requests.RequestException as e:
+                logger.error(f"AI摘要请求异常: {e}")
+                return None
+            
+            logger.debug(f"AI摘要响应状态: {response.status_code}")
             
             if response.status_code != 200:
                 logger.error(f"AI摘要API调用失败: {response.status_code} - {response.text}")

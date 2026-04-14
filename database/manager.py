@@ -327,26 +327,38 @@ class DatabaseManager:
         
         return row
 
-    def get_news_by_date(self, date: str) -> List[Dict]:
+    def get_news_by_category(self, category: str, limit: int = None, offset: int = 0) -> List[Dict]:
         cursor = self._connection.cursor()
         
-        cursor.execute('''
-            SELECT * FROM news 
-            WHERE DATE(fetch_time) = ? AND is_visible = 1 AND is_deleted = 0
-            ORDER BY publish_time DESC
-        ''', (date,))
+        if category == '全部':
+            query = '''
+                SELECT * FROM news 
+                WHERE is_visible = 1 AND is_deleted = 0
+                ORDER BY publish_time DESC
+            '''
+            params = []
+        elif category == '未分类':
+            query = '''
+                SELECT * FROM news 
+                WHERE (category IS NULL OR category = '未分类')
+                AND is_visible = 1 AND is_deleted = 0
+                ORDER BY publish_time DESC
+            '''
+            params = []
+        else:
+            query = '''
+                SELECT * FROM news 
+                WHERE category = ? 
+                AND is_visible = 1 AND is_deleted = 0
+                ORDER BY publish_time DESC
+            '''
+            params = [category]
         
-        return [self._convert_row(dict(row)) for row in cursor.fetchall()]
-
-    def get_news_by_category(self, category: str) -> List[Dict]:
-        cursor = self._connection.cursor()
+        if limit is not None:
+            query += ' LIMIT ? OFFSET ?'
+            params.extend([limit, offset])
         
-        cursor.execute('''
-            SELECT * FROM news 
-            WHERE (category = ? OR category LIKE ? OR category LIKE ? OR category LIKE ?) 
-            AND is_visible = 1 AND is_deleted = 0
-            ORDER BY publish_time DESC
-        ''', (category, f"{category}%", f"%,{category}", f"%,{category}%"))
+        cursor.execute(query, params)
         
         return [self._convert_row(dict(row)) for row in cursor.fetchall()]
 
@@ -775,6 +787,38 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"获取AI队列统计失败: {e}")
             return {'pending': 0, 'processing': 0, 'completed': 0, 'failed': 0}
+
+    def reset_stuck_ai_tasks(self) -> int:
+        """
+        重置卡住的AI任务（状态为processing的任务）
+
+        Returns:
+            被重置的任务数量
+        """
+        try:
+            cursor = self._connection.cursor()
+
+            # 先统计数量
+            cursor.execute("SELECT COUNT(*) FROM ai_processing_queue WHERE status = 'processing'")
+            count = cursor.fetchone()[0]
+
+            if count > 0:
+                # 重置状态为pending
+                cursor.execute('''
+                    UPDATE ai_processing_queue
+                    SET status = 'pending',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE status = 'processing'
+                ''')
+                self._connection.commit()
+                logger.info(f"已重置 {count} 个卡住的AI任务")
+
+            return count
+
+        except Exception as e:
+            logger.error(f"重置卡住的AI任务失败: {e}")
+            self._connection.rollback()
+            return 0
 
     def mark_news_as_read(self, news_id: int) -> bool:
         """

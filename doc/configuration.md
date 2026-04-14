@@ -48,38 +48,38 @@ content = "div.news-content"
 link = "a.news-link"
 time = "span.news-time"
 
-[categories.tech]
+[[categories]]
 name = "科技"
-keywords = ["人工智能", "科技", "互联网", "编程"]
 description = "涉及人工智能、科技产品、互联网、编程、软件、硬件等技术相关内容"
+keywords = ["人工智能", "科技", "互联网", "编程"]
 icon = "💻"
 color = "#3498db"
 
-[categories.finance]
+[[categories]]
 name = "财经"
-keywords = ["股票", "金融", "经济", "投资"]
 description = "涉及股票、金融、经济、投资、企业财报等财经相关内容"
+keywords = ["股票", "金融", "经济", "投资"]
 icon = "💰"
 color = "#27ae60"
 
-[categories.world]
+[[categories]]
 name = "国际"
-keywords = ["国际", "世界", "外交"]
 description = "涉及国际新闻、世界大事、外交关系等国际相关内容"
+keywords = ["国际", "世界", "外交"]
 icon = "🌍"
 color = "#e74c3c"
 
-[categories.sports]
+[[categories]]
 name = "体育"
-keywords = ["体育", "足球", "篮球"]
 description = "涉及体育赛事、运动员、体育组织等体育相关内容"
+keywords = ["体育", "足球", "篮球"]
 icon = "⚽"
 color = "#f39c12"
 
-[categories.entertainment]
+[[categories]]
 name = "娱乐"
-keywords = ["娱乐", "电影", "音乐"]
 description = "涉及电影、音乐、明星、娱乐活动等娱乐相关内容"
+keywords = ["娱乐", "电影", "音乐"]
 icon = "🎬"
 color = "#9b59b6"
 
@@ -240,14 +240,14 @@ time = "span.news-time"
 
 **分类配置说明：**
 
-系统使用英文键名作为分类标识，通过`name`字段显示中文名称。这种方式既保证了配置文件的规范性，又提供了良好的中文用户体验。
+系统使用数组格式配置分类，每个分类包含名称、描述、关键词等信息。这种方式统一了配置格式，与RSS源配置风格一致。
 
 **配置格式：**
 
 ```toml
-[categories.英文键名]
-# 可选字段：
+[[categories]]
 name = "显示名称"           # 分类显示名称（中文，用于界面显示）
+description = "分类描述"    # 分类描述（用于AI分类参考）
 keywords = ["关键词1", "关键词2"]  # 关键词列表（用于AI分类）
 icon = "📰"                # 分类图标（默认📰）
 color = "#95a5a6"           # 分类颜色（默认#95a5a6）
@@ -256,32 +256,37 @@ color = "#95a5a6"           # 分类颜色（默认#95a5a6）
 **预设分类示例：**
 
 ```toml
-[categories.tech]
+[[categories]]
 name = "科技"
+description = "涉及人工智能、科技产品、互联网、编程、软件、硬件等技术相关内容"
 keywords = ["人工智能", "科技", "互联网", "编程"]
 icon = "💻"
 color = "#3498db"
 
-[categories.finance]
+[[categories]]
 name = "财经"
+description = "涉及股票、金融、经济、投资、企业财报等财经相关内容"
 keywords = ["股票", "金融", "经济", "投资"]
 icon = "💰"
 color = "#27ae60"
 
-[categories.world]
+[[categories]]
 name = "国际"
+description = "涉及国际新闻、世界大事、外交关系等国际相关内容"
 keywords = ["国际", "世界", "外交"]
 icon = "🌍"
 color = "#e74c3c"
 
-[categories.sports]
+[[categories]]
 name = "体育"
+description = "涉及体育赛事、运动员、体育组织等体育相关内容"
 keywords = ["体育", "足球", "篮球"]
 icon = "⚽"
 color = "#f39c12"
 
-[categories.entertainment]
+[[categories]]
 name = "娱乐"
+description = "涉及电影、音乐、明星、娱乐活动等娱乐相关内容"
 keywords = ["娱乐", "电影", "音乐"]
 icon = "🎬"
 color = "#9b59b6"
@@ -290,20 +295,23 @@ color = "#9b59b6"
 **自定义分类示例：**
 
 ```toml
-[categories.automotive]
+[[categories]]
 name = "汽车"
+description = "涉及汽车行业、新能源车、电动车、驾驶技术等相关内容"
 keywords = ["汽车", "新能源车", "电动车", "驾驶"]
 icon = "🚗"
 color = "#e67e22"
 
-[categories.health]
+[[categories]]
 name = "健康"
+description = "涉及健康养生、医疗保健、疾病预防等相关内容"
 keywords = ["健康", "医疗", "养生", "疾病"]
 icon = "🏥"
 color = "#2ecc71"
 
-[categories.education]
+[[categories]]
 name = "教育"
+description = "涉及教育政策、学校教育、考试培训、学习资源等相关内容"
 keywords = ["教育", "学校", "考试", "学习"]
 icon = "📚"
 color = "#9b59b6"
@@ -313,16 +321,16 @@ color = "#9b59b6"
 
 | 配置项 | 类型 | 说明 | 必填 | 默认值 |
 |--------|------|------|------|--------|
-| name | string | 分类显示名称（中文） | 否 | 使用英文键名 |
-| keywords | array | 分类关键词列表 | 否 | [] |
+| name | string | 分类显示名称（中文） | 是 | - |
 | description | string | 分类描述 | 否 | "" |
+| keywords | array | 分类关键词列表 | 否 | [] |
 | icon | string | 分类图标 | 否 | 📰 |
 | color | string | 分类颜色 | 否 | #95a5a6 |
 
 **使用建议：**
 
-1. **键名规范**：使用英文作为键名，避免编码和兼容性问题
-2. **显示名称**：通过`name`字段设置中文显示名称
+1. **名称规范**：使用中文作为分类名称，便于AI理解和用户识别
+2. **描述设置**：为每个分类提供详细的描述，帮助AI更准确地进行分类
 3. **关键词设置**：为每个分类设置3-5个相关关键词，提高AI分类准确度
 4. **图标选择**：使用emoji作为图标，选择与分类相关的符号
 5. **颜色搭配**：使用十六进制颜色代码，建议使用明亮的颜色
@@ -330,13 +338,13 @@ color = "#9b59b6"
 
 **分类映射表：**
 
-| 英文键名 | 中文名称 | 图标 | 颜色 |
-|---------|---------|------|------|
-| tech | 科技 | 💻 | #3498db |
-| finance | 财经 | 💰 | #27ae60 |
-| world | 国际 | 🌍 | #e74c3c |
-| sports | 体育 | ⚽ | #f39c12 |
-| entertainment | 娱乐 | 🎬 | #9b59b6 |
+| 中文名称 | 图标 | 颜色 |
+|---------|------|------|
+| 科技 | 💻 | #3498db |
+| 财经 | 💰 | #27ae60 |
+| 国际 | 🌍 | #e74c3c |
+| 体育 | ⚽ | #f39c12 |
+| 娱乐 | 🎬 | #9b59b6 |
 
 ### 调度器配置 (scheduler)
 

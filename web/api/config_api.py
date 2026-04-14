@@ -5,7 +5,7 @@ import json
 import os
 from typing import Dict, Any
 from utils.logger import logger
-from utils.helpers import config
+from utils.helpers import config, get_categories, get_default_category
 from utils.config_validator import ConfigValidator, ConfigValidationError
 
 
@@ -15,8 +15,8 @@ class ConfigAPI:
     def get_config(self, handler):
         """获取配置"""
         try:
-            categories = config.get('categories', {})
-            default_category = config.get('default_category', '未分类')
+            categories = get_categories()
+            default_category = get_default_category()
             enable_ai_category = config.get('enable_ai_category', False)
             
             # 获取图片显示配置

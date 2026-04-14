@@ -213,5 +213,48 @@ class Config:
     def get_config_path(self) -> str:
         return 'config.toml'
 
+    def get_categories(self) -> list:
+        """从配置中读取分类列表（数组格式）"""
+        categories = self.get('categories', [])
+        if isinstance(categories, dict):
+            # 向后兼容：如果是对象格式，转换为数组格式
+            return self._convert_categories_dict_to_list(categories)
+        return categories
+
+    def _convert_categories_dict_to_list(self, categories_dict: dict) -> list:
+        """将旧的对象格式分类配置转换为新的数组格式"""
+        categories_list = []
+        for key, value in categories_dict.items():
+            category = {
+                'name': value.get('name', key),
+                'description': value.get('description', ''),
+                'keywords': value.get('keywords', []),
+                'icon': value.get('icon', '📰'),
+                'color': value.get('color', '#95a5a6')
+            }
+            categories_list.append(category)
+        return categories_list
+
+    def get_category_names(self) -> list:
+        """获取所有分类名称列表"""
+        categories = self.get_categories()
+        return [cat['name'] for cat in categories]
+
+    def get_default_category(self) -> str:
+        """获取默认分类"""
+        return self.get('default_category', '未分类')
+
 
 config = Config()
+
+def get_categories() -> list:
+    """获取分类列表（数组格式）"""
+    return config.get_categories()
+
+def get_category_names() -> list:
+    """获取所有分类名称列表"""
+    return config.get_category_names()
+
+def get_default_category() -> str:
+    """获取默认分类"""
+    return config.get_default_category()

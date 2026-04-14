@@ -11,15 +11,21 @@ class NewsAPI:
     """新闻API处理器"""
     
     def get_news(self, handler):
-        """获取今日新闻"""
+        """获取全部新闻"""
         try:
-            today = datetime.now().strftime('%Y-%m-%d')
-            news_list = db.get_news_by_date(today)
+            from urllib.parse import parse_qs, urlparse
+            params = parse_qs(urlparse(handler.path).query)
+            limit = int(params.get('limit', [30])[0])
+            offset = int(params.get('offset', [0])[0])
+            
+            news_list = db.get_news_by_category('全部', limit=limit, offset=offset)
             
             handler._send_json_response({
                 'success': True,
                 'data': news_list,
-                'count': len(news_list)
+                'count': len(news_list),
+                'limit': limit,
+                'offset': offset
             })
         except Exception as e:
             logger.error(f"获取新闻失败: {e}")
@@ -31,18 +37,22 @@ class NewsAPI:
             from urllib.parse import parse_qs, urlparse
             params = parse_qs(urlparse(handler.path).query)
             category = params.get('category', [''])[0]
+            limit = int(params.get('limit', [30])[0])
+            offset = int(params.get('offset', [0])[0])
             
             if not category:
                 handler._send_error_response("缺少category参数")
                 return
             
-            news_list = db.get_news_by_category(category)
+            news_list = db.get_news_by_category(category, limit=limit, offset=offset)
             
             handler._send_json_response({
                 'success': True,
                 'data': news_list,
                 'count': len(news_list),
-                'category': category
+                'category': category,
+                'limit': limit,
+                'offset': offset
             })
         except Exception as e:
             logger.error(f"获取分类新闻失败: {e}")

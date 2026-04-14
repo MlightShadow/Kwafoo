@@ -23,12 +23,13 @@
         </button>
       </div>
       <div class="news-stats">
-        <span>{{ newsCount }} 条新闻</span>
+        <span>{{ totalCount }} 条新闻</span>
+        <span>已加载: {{ displayedCount }}</span>
         <span>最后更新: {{ lastUpdateTime }}</span>
       </div>
     </div>
 
-    <div v-if="loading" class="loading">
+    <div v-if="loading && displayedCount === 0" class="loading">
       加载中...
     </div>
 
@@ -47,22 +48,36 @@
         :news="news" 
       />
     </div>
+
+    <div v-if="loadingMore" class="loading-more">
+      加载更多...
+    </div>
+
+    <div v-if="!hasMore && filteredNews.length > 0" class="no-more">
+      没有更多新闻了
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useNewsStore } from '@/stores/news'
+import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
 import NewsCard from '@/components/NewsCard.vue'
 
 const newsStore = useNewsStore()
+const configStore = useConfigStore()
 
 const lastUpdateTime = ref<string>(new Date().toLocaleString('zh-CN'))
 const currentTab = ref<'all' | 'unread' | 'read'>('all')
+const currentPage = ref(0)
+const pageSize = ref(30)
+const loadingMore = ref(false)
+const hasMore = ref(true)
 
 const filteredNews = computed(() => {
-  let news = newsStore.filteredNews
+  let news = newsStore.newsList
   
   if (currentTab.value === 'unread') {
     news = news.filter(n => !n.is_read)
@@ -75,21 +90,64 @@ const filteredNews = computed(() => {
 
 const loading = computed(() => newsStore.loading)
 const error = computed(() => newsStore.error)
-const newsCount = computed(() => filteredNews.value.length)
+const totalCount = computed(() => newsStore.newsCount)
+const displayedCount = computed(() => filteredNews.value.length)
 const currentCategoryName = computed(() => {
   const tabName = currentTab.value === 'all' ? '全部' : (currentTab.value === 'unread' ? '未读' : '已读')
   const category = newsStore.currentCategory || '全部'
   return `${category} - ${tabName}`
 })
 
+async function loadMoreNews() {
+  if (loadingMore.value || !hasMore.value) return
+  
+  loadingMore.value = true
+  
+  const offset = (currentPage.value + 1) * pageSize.value
+  currentPage.value++
+  
+  try {
+    const category = newsStore.currentCategory
+    
+    if (category && category !== '全部') {
+      const response = await api.getNewsByCategory(category, pageSize.value, offset)
+      if (response.data.success) {
+        const newNews = response.data.data
+        newsStore.newsList = [...newsStore.newsList, ...newNews]
+        
+        if (newNews.length < pageSize.value) {
+          hasMore.value = false
+        }
+      }
+    } else {
+      const response = await api.getNews(pageSize.value, offset)
+      if (response.data.success) {
+        const newNews = response.data.data
+        newsStore.newsList = [...newsStore.newsList, ...newNews]
+        
+        if (newNews.length < pageSize.value) {
+          hasMore.value = false
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error('加载更多新闻失败:', error)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
 async function handleTabChange(tab: 'all' | 'unread' | 'read') {
   currentTab.value = tab
+  currentPage.value = 0
+  hasMore.value = true
   
   if (tab === 'unread') {
     try {
       loading.value = true
       const response = await api.getUnreadNews(100)
       newsStore.newsList = response.data.data
+      hasMore.value = false
     } catch (error) {
       console.error('获取未读新闻失败:', error)
     } finally {
@@ -100,19 +158,48 @@ async function handleTabChange(tab: 'all' | 'unread' | 'read') {
       loading.value = true
       const response = await api.getReadNews(100)
       newsStore.newsList = response.data.data
+      hasMore.value = false
     } catch (error) {
       console.error('获取已读新闻失败:', error)
     } finally {
       loading.value = false
     }
   } else {
-    // 全部标签，重新加载新闻
-    await newsStore.loadNews()
+    await newsStore.loadNews(newsStore.currentCategory)
+    currentPage.value = 0
+    hasMore.value = true
   }
 }
 
-onMounted(() => {
+function handleScroll() {
+  const scrollTop = window.scrollY
+  const windowHeight = window.innerHeight
+  const documentHeight = document.documentElement.scrollHeight
+  
+  if (scrollTop + windowHeight >= documentHeight - 500) {
+    loadMoreNews()
+  }
+}
+
+// 监听分类变化，重置分页状态
+watch(() => newsStore.currentCategory, () => {
+  currentPage.value = 0
+  hasMore.value = true
+})
+
+onMounted(async () => {
   lastUpdateTime.value = new Date().toLocaleString('zh-CN')
+  
+  // 加载配置以获取分类信息
+  await configStore.loadConfig()
+  // 将分类设置到newsStore中
+  newsStore.setCategories(configStore.config?.categories || [])
+  
+  window.addEventListener('scroll', handleScroll)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -184,9 +271,41 @@ onMounted(() => {
 
 .news-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 1.5rem;
   width: 100%;
+}
+
+@media (min-width: 1200px) {
+  .news-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  .news-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .news-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.loading-more {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-size: 1rem;
+}
+
+.no-more {
+  text-align: center;
+  padding: 2rem;
+  color: #999;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 768px) {

@@ -116,5 +116,124 @@ class AIAPI:
             logger.error(f"添加单条新闻到AI队列失败: {e}")
             handler._send_error_response(str(e))
 
+    def process_news_category(self, handler):
+        """
+        对单条新闻进行AI分类
+        """
+        try:
+            import json
+            from database import db
+
+            content_length = int(handler.headers['Content-Length'])
+            post_data = handler.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            news_id = data.get('news_id')
+
+            if not news_id:
+                handler._send_error_response("缺少news_id参数")
+                return
+
+            # 检查新闻是否存在
+            news_list = db.get_news_by_id(news_id)
+            if not news_list:
+                handler._send_error_response("新闻不存在")
+                return
+
+            # 添加到AI队列（分类任务）
+            task_id = db.add_to_ai_queue(news_id, 'category', priority=1)
+
+            if task_id > 0:
+                handler._send_json_response({
+                    'success': True,
+                    'message': '已将新闻添加到AI分类队列'
+                })
+            else:
+                handler._send_error_response("添加到AI队列失败")
+        except Exception as e:
+            logger.error(f"添加新闻分类任务失败: {e}")
+            handler._send_error_response(str(e))
+
+    def process_news_summary(self, handler):
+        """
+        对单条新闻进行AI摘要
+        """
+        try:
+            import json
+            from database import db
+
+            content_length = int(handler.headers['Content-Length'])
+            post_data = handler.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            news_id = data.get('news_id')
+
+            if not news_id:
+                handler._send_error_response("缺少news_id参数")
+                return
+
+            # 检查新闻是否存在
+            news_list = db.get_news_by_id(news_id)
+            if not news_list:
+                handler._send_error_response("新闻不存在")
+                return
+
+            # 添加到AI队列（摘要任务）
+            task_id = db.add_to_ai_queue(news_id, 'summary', priority=1)
+
+            if task_id > 0:
+                handler._send_json_response({
+                    'success': True,
+                    'message': '已将新闻添加到AI摘要队列'
+                })
+            else:
+                handler._send_error_response("添加到AI队列失败")
+        except Exception as e:
+            logger.error(f"添加新闻摘要任务失败: {e}")
+            handler._send_error_response(str(e))
+
+    def process_news_reanalyze(self, handler):
+        """
+        重新分析单条新闻（分类+摘要）
+        """
+        try:
+            import json
+            from database import db
+
+            content_length = int(handler.headers['Content-Length'])
+            post_data = handler.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+
+            news_id = data.get('news_id')
+            force = data.get('force', False)
+
+            if not news_id:
+                handler._send_error_response("缺少news_id参数")
+                return
+
+            # 检查新闻是否存在
+            news_list = db.get_news_by_id(news_id)
+            if not news_list:
+                handler._send_error_response("新闻不存在")
+                return
+
+            # 如果强制重新处理，先清除AI处理状态
+            if force:
+                db.clear_ai_status(news_id)
+
+            # 添加到AI队列（完整分析任务）
+            task_id = db.add_to_ai_queue(news_id, 'all', priority=1)
+
+            if task_id > 0:
+                handler._send_json_response({
+                    'success': True,
+                    'message': '已将新闻添加到AI重新分析队列'
+                })
+            else:
+                handler._send_error_response("添加到AI队列失败")
+        except Exception as e:
+            logger.error(f"添加新闻重新分析任务失败: {e}")
+            handler._send_error_response(str(e))
+
 
 ai_api = AIAPI()

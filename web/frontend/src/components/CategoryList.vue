@@ -20,10 +20,20 @@ import { useNewsStore } from '@/stores/news'
 const newsStore = useNewsStore()
 
 const allCategories = computed(() => {
-  return {
+  const categories = {
     '全部': { icon: '📰' },
-    ...newsStore.categories
+    '未分类': { icon: '📋' }
   }
+  
+  // 将数组转换为对象
+  newsStore.categories.forEach(cat => {
+    categories[cat.name] = {
+      icon: cat.icon || '📄',
+      name: cat.name
+    }
+  })
+  
+  return categories
 })
 
 const currentCategory = computed(() => newsStore.currentCategory)

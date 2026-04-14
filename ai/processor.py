@@ -57,13 +57,15 @@ class AINewsProcessor:
             # AI摘要：手动执行时始终执行，自动执行时根据配置决定
             should_do_summary = manual or self.enable_ai_summary
             
-            if should_do_summary and description:
-                # 检查描述是否为空
-                if not description or not description.strip():
-                    logger.debug(f"描述为空，跳过AI摘要: ID={news_id}")
+            if should_do_summary:
+                # 检查描述是否为空，如果为空则使用标题
+                text_to_summarize = description or content or title
+                
+                if not text_to_summarize or not text_to_summarize.strip():
+                    logger.debug(f"描述和标题均为空，跳过AI摘要: ID={news_id}")
                 else:
                     try:
-                        summary = ai_summarizer.generate_summary(content, description)
+                        summary = ai_summarizer.generate_summary(content, text_to_summarize)
                         if summary:
                             if db.update_news_summary(news_id, summary):
                                 result['summary_updated'] = True
@@ -76,7 +78,7 @@ class AINewsProcessor:
             elif not should_do_summary:
                 logger.debug(f"AI摘要未启用，跳过: ID={news_id}")
             else:
-                logger.debug(f"无描述，跳过AI摘要: ID={news_id}")
+                logger.debug(f"无描述和标题，跳过AI摘要: ID={news_id}")
             
             if db.update_news_ai_status(news_id, True):
                 result['success'] = True
@@ -347,7 +349,10 @@ class AINewsProcessor:
                 try:
                     description = news_data.get('description', '')
                     content = news_data.get('content', '')
-                    summary = ai_summarizer.generate_summary(content, description)
+                    title = news_data.get('title', '')
+                    # 如果description为空，使用title作为输入
+                    text_to_summarize = description or content or title
+                    summary = ai_summarizer.generate_summary(content, text_to_summarize)
                     if summary:
                         db.update_news_summary(news_id, summary)
                         logger.debug(f"新闻摘要已更新: ID={news_id}")

@@ -47,7 +47,7 @@
     </div>
 
     <main class="container main-content">
-      <aside class="sidebar">
+      <aside v-if="showSidebar" class="sidebar">
         <CategoryList />
       </aside>
 
@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import CategoryList from '@/components/CategoryList.vue'
 import ChatModal from '@/components/ChatModal.vue'
 import { useNewsStore } from '@/stores/news'
@@ -86,6 +86,7 @@ import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
 
 const router = useRouter()
+const route = useRoute()
 const newsStore = useNewsStore()
 const configStore = useConfigStore()
 
@@ -95,6 +96,10 @@ const showChatModal = ref(false)
 const showOfflineMessage = ref(false)
 const userClosedOfflineMessage = ref(false)
 const tasks = ref<any[]>([])
+
+const showSidebar = computed(() => {
+  return route.name === 'news'
+})
 
 const runningTasks = computed(() => {
   return tasks.value.filter(task => task.status === 'running')
@@ -337,6 +342,10 @@ body {
 
 .sidebar {
   flex: 0 0 250px;
+  position: sticky;
+  top: 6rem;
+  height: calc(100vh - 8rem);
+  overflow-y: auto;
 }
 
 .content {

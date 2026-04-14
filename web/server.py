@@ -41,6 +41,9 @@ class KwafooRequestHandler(BaseHTTPRequestHandler):
         '/api/ai/process': ai_api.process_ai_news,
         '/api/ai/process/all': ai_api.process_all_news_ai,
         '/api/ai/process/single': ai_api.process_single_news_ai,
+        '/api/ai/process/category': ai_api.process_news_category,
+        '/api/ai/process/summary': ai_api.process_news_summary,
+        '/api/ai/process/reanalyze': ai_api.process_news_reanalyze,
         '/api/news/clear': news_api.clear_news,
         '/api/news/mark-read': news_api.mark_as_read,
         '/api/config': config_api.update_config

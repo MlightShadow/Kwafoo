@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useNewsStore } from '@/stores/news'
+import type { Category } from '@/types/config'
 import { api } from '@/api'
 
 export function useNews() {
@@ -61,7 +62,7 @@ export function useNews() {
     newsStore.setCategory(category)
   }
 
-  function setCategories(cats: Record<string, { icon?: string; color?: string }>) {
+  function setCategories(cats: Category[]) {
     newsStore.setCategories(cats)
   }
 

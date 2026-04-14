@@ -1,8 +1,13 @@
+export interface Category {
+  name: string
+  description?: string
+  keywords?: string[]
+  icon?: string
+  color?: string
+}
+
 export interface Config {
-  categories: Record<string, {
-    icon?: string
-    color?: string
-  }>
+  categories: Category[]
   default_category: string
   enable_ai_category: boolean
   image_display: {
