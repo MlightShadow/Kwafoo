@@ -61,7 +61,7 @@ async function selectCategory(category: string) {
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 0.875rem;
-  border: 1px solid #e5e7eb;
+  border: none;
   border-radius: 6px;
   background: white;
   cursor: pointer;
@@ -71,30 +71,47 @@ async function selectCategory(category: string) {
   font-weight: 500;
   color: #4b5563;
   font-size: 0.875rem;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .category-btn:hover {
   background: #f9fafb;
-  border-color: #d1d5db;
   transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.category-btn.has-color {
+  position: relative;
+}
+
+.category-btn.has-color::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.category-btn.has-color:hover::before {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .category-btn.has-color:hover {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: transparent;
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
 .category-btn.active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.category-btn.has-color.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-color: transparent;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 

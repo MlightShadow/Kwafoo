@@ -1139,6 +1139,27 @@ temperature = 0.7
 max_workers = 1
 batch_size = 1
 enable_summary = true
+enable_summary_comment = false
+enable_classifier_reasoning = false
+enable_summarizer_reasoning = false
+
+[ai.comment_stance]
+# 国籍示例：中国、美国、英国、日本、韩国、德国、法国、俄罗斯等
+nationality = "中国"
+# 性别示例：男、女、其他
+gender = "男"
+# 年龄
+age = "30"
+# 家庭状况示例：未婚、已婚、离异、丧偶
+family_status = "已婚"
+# 收入水平示例：低、中等、高
+income = "中等"
+# 健康状况示例：良好、一般、较差
+health_status = "良好"
+# 宗教信仰示例：无、佛教、基督教、伊斯兰教、道教、天主教、犹太教等
+religion = "无"
+# 自定义描述（留空则使用上述配置生成）
+custom_description = ""
 
 [server]
 host = "0.0.0.0"

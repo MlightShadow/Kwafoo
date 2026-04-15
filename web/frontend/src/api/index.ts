@@ -45,8 +45,8 @@ class APIClient {
     return this.client.post('/news/clear')
   }
 
-  async markAsRead(newsId: number): Promise<AxiosResponse<{ success: boolean; message: string }>> {
-    return this.client.post('/news/mark-read', { news_id: newsId })
+  async markAsRead(newsId: number, isRead: boolean): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/news/mark-read', { news_id: newsId, is_read: isRead })
   }
 
   async getReadNews(limit: number = 100): Promise<AxiosResponse<{ success: boolean; data: News[]; count: number }>> {

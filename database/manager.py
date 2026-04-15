@@ -922,12 +922,13 @@ class DatabaseManager:
             self._connection.rollback()
             return 0
 
-    def mark_news_as_read(self, news_id: int) -> bool:
+    def mark_news_as_read(self, news_id: int, is_read: bool = True) -> bool:
         """
-        标记新闻为已读
+        标记新闻的阅读状态
 
         Args:
             news_id: 新闻ID
+            is_read: 是否已读 (True=已读, False=未读)
 
         Returns:
             是否成功
@@ -935,13 +936,26 @@ class DatabaseManager:
         try:
             cursor = self._connection.cursor()
             cursor.execute('''
-                UPDATE news SET is_read = 1 WHERE id = ?
-            ''', (news_id,))
+                UPDATE news SET is_read = ? WHERE id = ?
+            ''', (1 if is_read else 0, news_id))
             self._connection.commit()
-            logger.debug(f"新闻已标记为已读: ID={news_id}")
+            logger.debug(f"新闻阅读状态已更新: ID={news_id}, is_read={is_read}")
+            
+            # 通过WebSocket广播更新
+            if self._ws_broadcast_callback:
+                try:
+                    self._ws_broadcast_callback({
+                        'type': 'news_updated',
+                        'news_id': news_id,
+                        'updates': {'is_read': 1 if is_read else 0}
+                    })
+                    logger.debug(f"已发送WebSocket广播: ID={news_id}, is_read={is_read}")
+                except Exception as e:
+                    logger.error(f"WebSocket广播失败: {e}")
+            
             return True
         except Exception as e:
-            logger.error(f"标记新闻为已读失败: {e}")
+            logger.error(f"标记新闻阅读状态失败: {e}")
             self._connection.rollback()
             return False
 

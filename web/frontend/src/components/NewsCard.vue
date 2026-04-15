@@ -33,7 +33,14 @@
       <div class="news-info">
         <h3 class="news-title">{{ news.title }}</h3>
         <div class="news-meta">
-          <span v-if="categoryDisplayName" class="news-category">{{ categoryDisplayName }}</span>
+          <span 
+            v-for="(category, index) in categoryList" 
+            :key="index"
+            class="news-category"
+            :style="{ background: category.color || '#f3f4f6' }"
+          >
+            {{ category.name }}
+          </span>
           <span class="news-source">{{ news.source }}</span>
           <span class="news-time">{{ formatTime(news.publish_time) }}</span>
         </div>
@@ -229,7 +236,7 @@ async function handleMarkAsRead() {
     markingAsRead.value = true
     
     const newStatus = props.news.is_read ? 0 : 1
-    await api.markAsRead(props.news.id)
+    await api.markAsRead(props.news.id, newStatus === 1)
     
     const newsItem = newsStore.newsList.find(n => n.id === props.news.id)
     if (newsItem) {
@@ -267,18 +274,21 @@ const imageUrl = computed(() => {
   return props.news.image_url || null
 })
 
-const categoryDisplayName = computed(() => {
-  if (!props.news.category) return ''
+const categoryList = computed(() => {
+  if (!props.news.category) return []
   
   const categories = props.news.category.split(',')
-  const displayNames = categories.map(cat => {
+  const categoryList = categories.map(cat => {
     const categoryName = cat.trim()
     // 从数组中查找对应的分类配置
     const categoryConfig = newsStore.categories.find(c => c.name === categoryName)
-    return categoryConfig?.name || categoryName
+    return {
+      name: categoryConfig?.name || categoryName,
+      color: categoryConfig?.color || '#95a5a6'
+    }
   })
   
-  return displayNames.join('、')
+  return categoryList
 })
 
 function formatTime(timeString?: string): string {
@@ -491,10 +501,10 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   border-radius: 9999px;
   background: #f3f4f6;
   font-weight: 500;
+  color: #374151;
 }
 
 .news-category {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
 }
 

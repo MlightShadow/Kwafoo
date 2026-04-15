@@ -93,6 +93,11 @@ class AISummarizer(ConfigObserver):
         self.max_input_length: int = config.get('ai.max_input_length', 2000)
         self.timeout: int = config.get('ai.timeout', 120)
         
+        # 从配置中读取点评相关配置
+        self.enable_summary_comment: bool = config.get('ai.enable_summary_comment', False)
+        self.comment_stance: Dict[str, str] = config.get('ai.comment_stance', {})
+        self.enable_reasoning: bool = config.get('ai.enable_summarizer_reasoning', False)
+        
         # 注册为配置观察者
         config.add_observer(self)
 
@@ -112,6 +117,9 @@ class AISummarizer(ConfigObserver):
         self.description_threshold = config.get('ai_summary_threshold', 140)
         self.max_input_length = ai_config.get('max_input_length', 2000)
         self.timeout = ai_config.get('timeout', 120)
+        self.enable_summary_comment = ai_config.get('enable_summary_comment', False)
+        self.comment_stance = ai_config.get('comment_stance', {})
+        self.enable_reasoning = ai_config.get('enable_summarizer_reasoning', False)
 
     def generate_summary(self, content: str, description: Optional[str] = None) -> Optional[str]:
         try:
@@ -164,6 +172,12 @@ class AISummarizer(ConfigObserver):
                 "temperature": self.temperature
             }
             
+            if self.enable_reasoning:
+                payload["reasoning_effort"] = "medium"
+                logger.debug(f"AI摘要已启用深度思考功能")
+            else:
+                logger.debug(f"AI摘要未启用深度思考功能")
+            
             logger.debug(f"AI摘要请求: {self.base_url}/v1/chat/completions")
             logger.debug(f"AI摘要超时设置: {self.timeout}秒")
             
@@ -195,7 +209,14 @@ class AISummarizer(ConfigObserver):
                 logger.error("AI摘要响应格式错误: 缺少choices字段")
                 return None
             
-            summary = data['choices'][0]['message']['content'].strip()
+            message = data['choices'][0]['message']
+            logger.debug(f"AI摘要message keys: {list(message.keys())}")
+            if 'content' in message:
+                logger.debug(f"AI摘要content长度: {len(message['content'])}")
+            if 'reasoning_content' in message:
+                logger.debug(f"AI摘要reasoning_content长度: {len(message['reasoning_content'])}")
+            
+            summary = message['content'].strip()
             logger.info(f"AI摘要生成成功，长度: {len(summary)}")
             return summary
             
@@ -205,7 +226,21 @@ class AISummarizer(ConfigObserver):
 
     def _build_summary_prompt(self, content: str) -> str:
         truncated_content = smart_truncate(content, self.max_input_length)
-        return f"""请将以下新闻内容改写为简洁摘要（不超过140字）：
+        if self.enable_summary_comment:
+            personality = self._build_personality_description()
+            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后生成新闻摘要（不超过140字）：
+
+{personality}
+
+{truncated_content}
+
+要求：
+1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
+2. 第二部分：准确概括核心内容，简洁明了，不超过140字
+3. 必须使用中文书写，不能使用全英文
+4. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
+        else:
+            return f"""请将以下新闻内容改写为简洁摘要（不超过140字）：
 
 {truncated_content}
 
@@ -216,7 +251,21 @@ class AISummarizer(ConfigObserver):
 
     def _build_rewrite_prompt(self, description: str) -> str:
         truncated_description = smart_truncate(description, self.max_input_length)
-        return f"""请将以下新闻描述改写为简洁摘要（不超过140字）：
+        if self.enable_summary_comment:
+            personality = self._build_personality_description()
+            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后改写新闻描述为摘要（不超过140字）：
+
+{personality}
+
+{truncated_description}
+
+要求：
+1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
+2. 第二部分：准确概括核心内容，简洁明了，不超过140字
+3. 必须使用中文书写，不能使用全英文
+4. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
+        else:
+            return f"""请将以下新闻描述改写为简洁摘要（不超过140字）：
 
 {truncated_description}
 
@@ -228,7 +277,23 @@ class AISummarizer(ConfigObserver):
     def _build_translate_and_summarize_prompt(self, description: str) -> str:
         """翻译并摘要非中文内容"""
         truncated_description = smart_truncate(description, self.max_input_length)
-        return f"""请将以下新闻内容翻译为中文，并改写为简洁摘要（不超过140字）：
+        if self.enable_summary_comment:
+            personality = self._build_personality_description()
+            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后将以下新闻内容翻译为中文，并改写为简洁摘要（不超过140字）：
+
+{personality}
+
+{truncated_description}
+
+要求：
+1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
+2. 第二部分：首先翻译为中文，然后改写为简洁摘要
+3. 准确概括核心内容，简洁明了，不超过140字
+4. 必须使用中文书写，不能使用全英文
+5. 必要的英文术语或专有名词可以保留，但整体必须是中文
+6. 只输出中文摘要，不要包含原文或翻译过程"""
+        else:
+            return f"""请将以下新闻内容翻译为中文，并改写为简洁摘要（不超过140字）：
 
 {truncated_description}
 
@@ -239,6 +304,35 @@ class AISummarizer(ConfigObserver):
 4. 必须使用中文书写，不能使用全英文
 5. 必要的英文术语或专有名词可以保留，但整体必须是中文
 6. 只输出中文摘要，不要包含原文或翻译过程"""
+
+    def _build_personality_description(self) -> str:
+        if self.comment_stance.get('custom_description', '').strip():
+            return self.comment_stance['custom_description'].strip()
+        
+        nationality = self.comment_stance.get('nationality', '中国')
+        gender = self.comment_stance.get('gender', '')
+        age = self.comment_stance.get('age', '')
+        family_status = self.comment_stance.get('family_status', '')
+        income = self.comment_stance.get('income', '')
+        health_status = self.comment_stance.get('health_status', '')
+        religion = self.comment_stance.get('religion', '无')
+        
+        parts = []
+        parts.append(f"国籍：{nationality}")
+        if gender:
+            parts.append(f"性别：{gender}")
+        if age:
+            parts.append(f"年龄：{age}岁")
+        if family_status:
+            parts.append(f"家庭状况：{family_status}")
+        if income:
+            parts.append(f"收入水平：{income}")
+        if health_status:
+            parts.append(f"健康状况：{health_status}")
+        if religion and religion != '无':
+            parts.append(f"宗教信仰：{religion}")
+        
+        return "，".join(parts)
 
 
 ai_summarizer = AISummarizer()

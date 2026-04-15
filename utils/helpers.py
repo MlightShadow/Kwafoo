@@ -121,6 +121,17 @@ class Config:
             'AI_MAX_WORKERS': ('ai', 'max_workers'),
             'AI_BATCH_SIZE': ('ai', 'batch_size'),
             'AI_ENABLE_SUMMARY': ('ai', 'enable_summary'),
+            'AI_ENABLE_SUMMARY_COMMENT': ('ai', 'enable_summary_comment'),
+            'AI_ENABLE_CLASSIFIER_REASONING': ('ai', 'enable_classifier_reasoning'),
+            'AI_ENABLE_SUMMARIZER_REASONING': ('ai', 'enable_summarizer_reasoning'),
+            'AI_COMMENT_STANCE_NATIONALITY': ('ai.comment_stance', 'nationality'),
+            'AI_COMMENT_STANCE_GENDER': ('ai.comment_stance', 'gender'),
+            'AI_COMMENT_STANCE_AGE': ('ai.comment_stance', 'age'),
+            'AI_COMMENT_STANCE_FAMILY_STATUS': ('ai.comment_stance', 'family_status'),
+            'AI_COMMENT_STANCE_INCOME': ('ai.comment_stance', 'income'),
+            'AI_COMMENT_STANCE_HEALTH_STATUS': ('ai.comment_stance', 'health_status'),
+            'AI_COMMENT_STANCE_RELIGION': ('ai.comment_stance', 'religion'),
+            'AI_COMMENT_STANCE_CUSTOM_DESCRIPTION': ('ai.comment_stance', 'custom_description'),
             'SERVER_HOST': ('server', 'host'),
             'SERVER_PORT': ('server', 'port'),
             'SERVER_ENABLE_WEBSOCKET': ('server', 'enable_websocket'),
@@ -140,13 +151,25 @@ class Config:
         for env_key, (section, key) in env_mappings.items():
             value = os.environ.get(env_key)
             if value is not None:
-                if section in config:
+                if '.' in section:
+                    parts = section.split('.')
+                    config_section = config
+                    for part in parts:
+                        if part not in config_section:
+                            config_section[part] = {}
+                        config_section = config_section[part]
+                    
+                    if key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch', 'enable_summary_comment', 'enable_classifier_reasoning', 'enable_summarizer_reasoning']:
+                        config_section[key] = value.lower() in ('true', '1', 'yes')
+                    else:
+                        config_section[key] = value
+                elif section in config:
                     if key in ['max_tokens', 'fetch_interval', 'ai_process_interval', 'port', 'top_k', 'max_size', 'backup_count', 'width', 'height', 'max_image_size', 'max_workers', 'batch_size']:
                         try:
                             config[section][key] = int(value)
                         except ValueError:
                             pass
-                    elif key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch']:
+                    elif key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch', 'enable_summary_comment', 'enable_classifier_reasoning', 'enable_summarizer_reasoning']:
                         config[section][key] = value.lower() in ('true', '1', 'yes')
                     else:
                         config[section][key] = value

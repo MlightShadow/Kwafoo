@@ -105,20 +105,22 @@ class NewsAPI:
     @validate_mark_as_read_params
     def mark_as_read(self, handler, params: MarkAsReadParams):
         """
-        标记新闻为已读
+        标记新闻的阅读状态（已读/未读）
         """
         try:
-            success = db.mark_news_as_read(params.news_id)
+            is_read = params.is_read if hasattr(params, 'is_read') else True
+            success = db.mark_news_as_read(params.news_id, is_read)
 
             if success:
+                status_text = '已读' if is_read else '未读'
                 handler._send_json_response({
                     'success': True,
-                    'message': '新闻已标记为已读'
+                    'message': f'新闻已标记为{status_text}'
                 })
             else:
                 handler._send_error_response("标记失败")
         except Exception as e:
-            logger.error(f"标记新闻为已读失败: {e}")
+            logger.error(f"标记新闻阅读状态失败: {e}")
             handler._send_error_response(str(e))
 
     @validate_get_read_news_params

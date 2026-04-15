@@ -127,6 +127,7 @@ if HAS_PYDANTIC:
     class MarkAsReadParams(BaseModel):
         """标记已读参数"""
         news_id: int = Field(..., gt=0, description="新闻ID")
+        is_read: bool = Field(default=True, description="是否已读")
     
     class ChatParams(BaseModel):
         """对话参数"""

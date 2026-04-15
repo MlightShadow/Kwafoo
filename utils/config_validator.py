@@ -125,6 +125,12 @@ class ConfigValidator:
             elif config['batch_size'] < 1:
                 errors.append(ConfigValidationError('ai.batch_size', '批量大小必须大于0'))
         
+        if 'nationality' in config:
+            if not isinstance(config['nationality'], str):
+                errors.append(ConfigValidationError('ai.nationality', '国籍必须是字符串'))
+            elif not config['nationality'].strip():
+                errors.append(ConfigValidationError('ai.nationality', '国籍不能为空'))
+        
         return errors
     
     @staticmethod

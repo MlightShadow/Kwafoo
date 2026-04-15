@@ -10,6 +10,7 @@ class AIClassifier(ConfigObserver):
         self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
         self.max_tokens: int = config.get('ai.max_tokens', 4096)
         self.temperature: float = config.get('ai.temperature', 0.7)
+        self.enable_reasoning: bool = config.get('ai.enable_classifier_reasoning', False)
         
         self.categories: List[str] = get_category_names()
         self.categories_config: List[Dict[str, Any]] = config.get('categories', [])
@@ -34,6 +35,7 @@ class AIClassifier(ConfigObserver):
         self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
         self.max_tokens = ai_config.get('max_tokens', 4096)
         self.temperature = ai_config.get('temperature', 0.7)
+        self.enable_reasoning = ai_config.get('enable_classifier_reasoning', False)
         self.max_input_length = ai_config.get('max_input_length', 800)
         self.timeout = ai_config.get('timeout', 120)
         
@@ -68,9 +70,15 @@ class AIClassifier(ConfigObserver):
                         "content": prompt
                     }
                 ],
-                "max_tokens": 256,  # 减少输出token数
+                "max_tokens": 256,
                 "temperature": self.temperature
             }
+            
+            if self.enable_reasoning:
+                payload["reasoning_effort"] = "medium"
+                logger.debug(f"AI分类已启用深度思考功能")
+            else:
+                logger.debug(f"AI分类未启用深度思考功能")
             
             logger.debug(f"AI分类请求: {self.base_url}/v1/chat/completions")
             logger.debug(f"AI分类超时设置: {self.timeout}秒")
