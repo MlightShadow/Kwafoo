@@ -1,12 +1,13 @@
 <template>
-  <div class="news-card" :data-id="news.id">
+  <div class="news-card" :data-id="news.id" :class="{ 'ai-processing': aiProcessing }">
     <button 
       @click="handleReanalyze" 
       class="reanalyze-btn"
       :disabled="aiProcessing"
       title="重新分析"
     >
-      🔄
+      <span v-if="aiProcessing" class="spinner"></span>
+      <span v-else>🔄</span>
     </button>
     <div class="news-card-main">
       <div v-if="showThumbnail" class="news-image">
@@ -41,23 +42,54 @@
       </div>
     </div>
     <div v-if="news.ai_summary" class="news-summary ai-generated">
-      <div class="summary-header" @mouseenter="showOriginalSummary = true" @mouseleave="showOriginalSummary = false">
+      <div 
+        ref="summaryHeaderRef"
+        class="summary-header" 
+        @mouseenter="handleShowOriginalSummary" 
+        @mouseleave="showOriginalSummary = false"
+      >
         <span class="summary-icon">✨</span>
-        <strong>AI摘要：</strong>{{ news.ai_summary }}
-      </div>
-      <div v-if="showOriginalSummary && news.description" class="original-summary-tooltip">
-        <div class="tooltip-header">📄 原文摘要</div>
-        <div class="tooltip-content">{{ truncateText(news.description, 300) }}</div>
+        <span class="summary-label">AI摘要：</span>
+        <span class="summary-content">{{ news.ai_summary }}</span>
       </div>
     </div>
     <div v-else-if="news.description" class="news-description">
-      {{ truncateText(news.description, 140) }}
+      <div 
+        ref="descriptionRef"
+        class="description-content"
+        @mouseenter="handleShowFullDescription" 
+        @mouseleave="showFullDescription = false"
+      >
+        {{ truncateText(news.description, 140) }}
+      </div>
     </div>
   </div>
+
+  <!-- 使用Teleport将tooltip渲染到body下，避免被其他元素遮挡 -->
+  <Teleport to="body">
+    <div 
+      ref="originalSummaryTooltipRef"
+      v-if="showOriginalSummary && news.description" 
+      class="original-summary-tooltip"
+      :style="tooltipStyle"
+    >
+      <div class="tooltip-header">📄 原文摘要</div>
+      <div class="tooltip-content">{{ news.description }}</div>
+    </div>
+    <div 
+      ref="fullDescriptionTooltipRef"
+      v-if="showFullDescription" 
+      class="full-description-tooltip"
+      :style="descriptionTooltipStyle"
+    >
+      <div class="tooltip-header">📄 完整摘要</div>
+      <div class="tooltip-content">{{ news.description }}</div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, nextTick, watch } from 'vue'
 import { useNewsStore } from '@/stores/news'
 import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
@@ -73,7 +105,84 @@ const configStore = useConfigStore()
 const markingAsRead = ref(false)
 const aiProcessing = ref(false)
 const showOriginalSummary = ref(false)
+const showFullDescription = ref(false)
 const imageLoadFailed = ref(false)
+const summaryHeaderRef = ref<HTMLElement | null>(null)
+const descriptionRef = ref<HTMLElement | null>(null)
+const originalSummaryTooltipRef = ref<HTMLElement | null>(null)
+const fullDescriptionTooltipRef = ref<HTMLElement | null>(null)
+const tooltipStyle = ref<Record<string, string>>({})
+const descriptionTooltipStyle = ref<Record<string, string>>({})
+
+async function handleShowOriginalSummary() {
+  showOriginalSummary.value = true
+  
+  // 等待tooltip渲染完成
+  await nextTick()
+  
+  // 计算tooltip位置
+  if (summaryHeaderRef.value && originalSummaryTooltipRef.value) {
+    const rect = summaryHeaderRef.value.getBoundingClientRect()
+    const tooltipRect = originalSummaryTooltipRef.value.getBoundingClientRect()
+    const tooltipWidth = tooltipRect.width
+    const tooltipHeight = tooltipRect.height
+    
+    // 计算tooltip位置
+    let top = rect.bottom + 8
+    let left = rect.left
+    
+    // 检查右边界
+    if (left + tooltipWidth > window.innerWidth) {
+      left = window.innerWidth - tooltipWidth - 16
+    }
+    
+    // 检查底部边界
+    if (top + tooltipHeight > window.innerHeight) {
+      top = rect.top - tooltipHeight - 8
+    }
+    
+    tooltipStyle.value = {
+      top: `${top}px`,
+      left: `${left}px`,
+      zIndex: '9999'
+    }
+  }
+}
+
+async function handleShowFullDescription() {
+  showFullDescription.value = true
+  
+  // 等待tooltip渲染完成
+  await nextTick()
+  
+  // 计算tooltip位置
+  if (descriptionRef.value && fullDescriptionTooltipRef.value) {
+    const rect = descriptionRef.value.getBoundingClientRect()
+    const tooltipRect = fullDescriptionTooltipRef.value.getBoundingClientRect()
+    const tooltipWidth = tooltipRect.width
+    const tooltipHeight = tooltipRect.height
+    
+    // 计算tooltip位置
+    let top = rect.bottom + 8
+    let left = rect.left
+    
+    // 检查右边界
+    if (left + tooltipWidth > window.innerWidth) {
+      left = window.innerWidth - tooltipWidth - 16
+    }
+    
+    // 检查底部边界
+    if (top + tooltipHeight > window.innerHeight) {
+      top = rect.top - tooltipHeight - 8
+    }
+    
+    descriptionTooltipStyle.value = {
+      top: `${top}px`,
+      left: `${left}px`,
+      zIndex: '9999'
+    }
+  }
+}
 
 const showThumbnail = computed(() => {
   return configStore.config?.image_display?.show_thumbnail !== false
@@ -105,9 +214,10 @@ async function handleReanalyze() {
   try {
     aiProcessing.value = true
     await api.processNewsReanalyze(props.news.id)
+    // 不在这里设置 aiProcessing.value = false
+    // 等待WebSocket更新消息来结束动画
   } catch (error) {
     console.error('重新分析失败:', error)
-  } finally {
     aiProcessing.value = false
   }
 }
@@ -187,6 +297,21 @@ function handleImageError(event: Event) {
   // 标记图片加载失败，imageUrl computed会自动切换到占位图
   imageLoadFailed.value = true
 }
+
+// 监听news的变化，当AI分析完成时自动结束动画
+watch(() => props.news.ai_summary, (newSummary, oldSummary) => {
+  // 如果AI摘要从无到有，或者从旧值变为新值，说明AI分析完成
+  if (aiProcessing.value && newSummary && newSummary !== oldSummary) {
+    aiProcessing.value = false
+  }
+})
+
+watch(() => props.news.category, (newCategory, oldCategory) => {
+  // 如果分类从旧值变为新值，说明AI分析完成
+  if (aiProcessing.value && newCategory && newCategory !== oldCategory) {
+    aiProcessing.value = false
+  }
+})
 </script>
 
 <style scoped>
@@ -199,6 +324,11 @@ function handleImageError(event: Event) {
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+.news-card.ai-processing {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
 }
 
 .reanalyze-btn {
@@ -229,6 +359,22 @@ function handleImageError(event: Event) {
 .reanalyze-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(0, 123, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #007bff;
+  animation: spin 0.8s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .news-card-main {
@@ -307,28 +453,40 @@ function handleImageError(event: Event) {
 }
 
 .summary-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.25rem;
   cursor: help;
   position: relative;
+  flex-wrap: wrap;
 }
 
 .summary-icon {
   font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.summary-label {
+  font-weight: 600;
+  color: #28a745;
+  flex-shrink: 0;
+}
+
+.summary-content {
+  color: #28a745;
+  font-style: italic;
+  word-break: break-word;
 }
 
 .original-summary-tooltip {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
+  position: fixed;
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 9999;
   min-width: 280px;
-  max-width: 350px;
+  max-width: 400px;
   padding: 0.75rem;
   pointer-events: auto;
 }
@@ -337,8 +495,6 @@ function handleImageError(event: Event) {
   font-weight: 600;
   color: #333;
   margin-bottom: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e0e0e0;
   font-size: 0.85rem;
 }
 
@@ -346,6 +502,8 @@ function handleImageError(event: Event) {
   color: #666;
   font-size: 0.8rem;
   line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .news-description {
@@ -355,6 +513,24 @@ function handleImageError(event: Event) {
   line-height: 1.5;
   background: #f9f9f9;
   border-radius: 4px;
+  position: relative;
+}
+
+.description-content {
+  cursor: help;
+}
+
+.full-description-tooltip {
+  position: fixed;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 0.75rem;
+  pointer-events: auto;
 }
 
 .news-actions {

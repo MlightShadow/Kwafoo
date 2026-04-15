@@ -34,8 +34,10 @@ export function useWebSocket(url: string = 'ws://localhost:8001') {
       }
       
       ws.onmessage = (event) => {
+        console.log('收到WebSocket原始消息:', event.data)
         try {
           const data = JSON.parse(event.data)
+          console.log('解析后的WebSocket消息:', data)
           messages.value.push({
             type: data.type,
             data: data,
@@ -43,6 +45,7 @@ export function useWebSocket(url: string = 'ws://localhost:8001') {
           })
           
           // 触发自定义事件
+          console.log('触发自定义事件: websocket-message', data)
           window.dispatchEvent(new CustomEvent('websocket-message', { detail: data }))
         } catch (e) {
           console.error('解析WebSocket消息失败:', e)

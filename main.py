@@ -1,6 +1,7 @@
 import sys
 import os
 import asyncio
+import threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from utils.logger import logger
@@ -17,9 +18,16 @@ async def start_websocket():
     try:
         await ws_server.start()
         # 启用进度监控器的WebSocket广播
-        progress_monitor.enable_websocket(ws_server.broadcast)
+        progress_monitor.enable_websocket(ws_server.broadcast_sync)
+        # 启用数据库管理器的WebSocket广播
+        db.enable_websocket_broadcast(ws_server.broadcast_sync)
+        
+        # 保持WebSocket服务器运行
+        logger.info("WebSocket服务器正在运行...")
+        while ws_server.is_running:
+            await asyncio.sleep(1)
     except Exception as e:
-        logger.error(f"WebSocket服务器启动失败: {e}")
+        logger.error(f"WebSocket服务器运行失败: {e}")
 
 
 def main():
@@ -49,8 +57,9 @@ def main():
         http_server.start()
         
         logger.info("启动WebSocket服务器...")
-        # 在新的事件循环中启动WebSocket服务器
-        asyncio.run(start_websocket())
+        # 在新线程中启动WebSocket服务器
+        ws_thread = threading.Thread(target=lambda: asyncio.run(start_websocket()), daemon=True)
+        ws_thread.start()
         
         logger.info("=" * 50)
         logger.info("系统启动完成")
@@ -68,7 +77,8 @@ def main():
             http_server.stop()
             
             # 停止WebSocket服务器
-            asyncio.run(ws_server.stop())
+            ws_server.is_running = False
+            ws_thread.join(timeout=2)
             
             db.close()
             logger.info("系统已停止")

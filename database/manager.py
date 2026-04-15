@@ -12,6 +12,7 @@ from utils.image_processor import image_processor
 class DatabaseManager:
     _instance = None
     _thread_local = threading.local()
+    _ws_broadcast_callback = None
     
     def __new__(cls):
         if cls._instance is None:
@@ -20,6 +21,12 @@ class DatabaseManager:
 
     def __init__(self):
         pass
+
+    @classmethod
+    def enable_websocket_broadcast(cls, callback):
+        """启用WebSocket广播"""
+        cls._ws_broadcast_callback = callback
+        logger.info("WebSocket广播已启用")
 
     def _connect(self):
         """连接数据库"""
@@ -583,6 +590,7 @@ class DatabaseManager:
             return False
 
     def update_news_category(self, news_id: int, category: str) -> bool:
+        logger.info(f"开始更新新闻分类: ID={news_id}, category={category}")
         try:
             cursor = self._connection.cursor()
             cursor.execute('''
@@ -592,7 +600,24 @@ class DatabaseManager:
             ''', (category, news_id))
             
             self._connection.commit()
-            logger.debug(f"新闻分类更新成功: ID={news_id}, category={category}")
+            logger.info(f"新闻分类更新成功: ID={news_id}, category={category}")
+            
+            # WebSocket广播
+            if self._ws_broadcast_callback:
+                logger.info(f"WebSocket广播回调已设置，准备广播: ID={news_id}")
+                try:
+                    logger.info(f"准备广播新闻更新: ID={news_id}, category={category}")
+                    self._ws_broadcast_callback({
+                        'type': 'news_updated',
+                        'news_id': news_id,
+                        'updates': {'category': category}
+                    })
+                    logger.info(f"已发送WebSocket广播: ID={news_id}")
+                except Exception as e:
+                    logger.warning(f"WebSocket广播失败: {e}")
+            else:
+                logger.warning(f"WebSocket广播回调未设置，跳过广播: ID={news_id}")
+            
             return True
             
         except Exception as e:
@@ -604,6 +629,7 @@ class DatabaseManager:
             return False
 
     def update_news_summary(self, news_id: int, ai_summary: str) -> bool:
+        logger.info(f"开始更新新闻摘要: ID={news_id}, summary_length={len(ai_summary)}")
         try:
             cursor = self._connection.cursor()
             cursor.execute('''
@@ -613,7 +639,24 @@ class DatabaseManager:
             ''', (ai_summary, news_id))
             
             self._connection.commit()
-            logger.debug(f"新闻摘要更新成功: ID={news_id}")
+            logger.info(f"新闻摘要更新成功: ID={news_id}")
+            
+            # WebSocket广播
+            if self._ws_broadcast_callback:
+                logger.info(f"WebSocket广播回调已设置，准备广播: ID={news_id}")
+                try:
+                    logger.info(f"准备广播新闻更新: ID={news_id}")
+                    self._ws_broadcast_callback({
+                        'type': 'news_updated',
+                        'news_id': news_id,
+                        'updates': {'ai_summary': ai_summary}
+                    })
+                    logger.info(f"已发送WebSocket广播: ID={news_id}")
+                except Exception as e:
+                    logger.warning(f"WebSocket广播失败: {e}")
+            else:
+                logger.warning(f"WebSocket广播回调未设置，跳过广播: ID={news_id}")
+            
             return True
             
         except Exception as e:
@@ -717,10 +760,7 @@ class DatabaseManager:
                 UPDATE news 
                 SET ai_processed = 0,
                     ai_summary = NULL,
-                    ai_category = NULL,
-                    ai_sentiment = NULL,
-                    ai_keywords = NULL,
-                    ai_processed_at = NULL
+                    category = NULL
                 WHERE id = ?
             ''', (news_id,))
             self._connection.commit()

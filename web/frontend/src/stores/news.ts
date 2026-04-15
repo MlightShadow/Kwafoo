@@ -94,6 +94,19 @@ export const useNewsStore = defineStore('news', () => {
     categories.value = cats
   }
 
+  function updateSingleNews(newsId: number, updates: Partial<News>) {
+    console.log('更新新闻:', newsId, updates)
+    const newsItem = newsList.value.find(n => n.id === newsId)
+    console.log('找到的新闻项:', newsItem)
+    if (newsItem) {
+      console.log('更新前:', newsItem)
+      Object.assign(newsItem, updates)
+      console.log('更新后:', newsItem)
+    } else {
+      console.log('未找到新闻项，当前新闻列表:', newsList.value.map(n => n.id))
+    }
+  }
+
   return {
     newsList,
     currentCategory,
@@ -108,6 +121,7 @@ export const useNewsStore = defineStore('news', () => {
     loadStats,
     clearNews,
     setCategory,
-    setCategories
+    setCategories,
+    updateSingleNews
   }
 })

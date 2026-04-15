@@ -23,6 +23,7 @@ class WebSocketServer:
         self.clients: Set[WebSocketServerProtocol] = set()
         self.server = None
         self.is_running = False
+        self._loop = None  # 保存事件循环引用
         
     async def register(self, websocket: WebSocketServerProtocol):
         """注册新的WebSocket连接"""
@@ -43,15 +44,19 @@ class WebSocketServer:
         
     async def broadcast(self, message: Dict[str, Any]):
         """向所有连接的客户端广播消息"""
+        logger.info(f"广播消息被调用: message={message}, clients_count={len(self.clients)}")
         if not self.clients:
+            logger.warning("没有连接的客户端，跳过广播")
             return
             
         message_str = json.dumps(message)
         disconnected = set()
         
+        logger.info(f"准备向 {len(self.clients)} 个客户端发送消息")
         for client in self.clients:
             try:
                 await client.send(message_str)
+                logger.info(f"成功发送消息到客户端: {client.remote_address}")
             except Exception as e:
                 logger.error(f"发送消息失败: {e}")
                 disconnected.add(client)
@@ -59,6 +64,19 @@ class WebSocketServer:
         # 移除断开的连接
         for client in disconnected:
             await self.unregister(client)
+        
+        logger.info(f"广播完成: 成功发送到 {len(self.clients) - len(disconnected)} 个客户端")
+    
+    def broadcast_sync(self, message: Dict[str, Any]):
+        """同步广播方法，可以从任何线程调用"""
+        if self._loop and self._loop.is_running():
+            import asyncio
+            asyncio.run_coroutine_threadsafe(
+                self.broadcast(message),
+                self._loop
+            )
+        else:
+            logger.warning(f"事件循环不可用，无法广播消息: {message}")
     
     async def handle_message(self, websocket: WebSocketServerProtocol, message: str):
         """处理客户端消息"""
@@ -88,16 +106,17 @@ class WebSocketServer:
         except Exception as e:
             logger.error(f"处理消息失败: {e}")
     
-    async def handler(self, websocket: WebSocketServerProtocol, path: str):
+    async def handler(self, websocket: WebSocketServerProtocol):
         """WebSocket连接处理器"""
+        logger.info(f"WebSocket handler被调用: {websocket.remote_address}")
         await self.register(websocket)
         try:
             async for message in websocket:
                 await self.handle_message(websocket, message)
-        except websockets.exceptions.ConnectionClosed:
-            logger.info("WebSocket连接正常关闭")
+        except websockets.exceptions.ConnectionClosed as e:
+            logger.info(f"WebSocket连接正常关闭: {e}")
         except Exception as e:
-            logger.error(f"WebSocket连接错误: {e}")
+            logger.error(f"WebSocket连接错误: {e}", exc_info=True)
         finally:
             await self.unregister(websocket)
     
@@ -150,6 +169,15 @@ class WebSocketServer:
             'timestamp': datetime.now().isoformat()
         })
     
+    async def broadcast_news_updated(self, news_id: int, updates: dict):
+        """广播新闻更新"""
+        await self.broadcast({
+            'type': 'news_updated',
+            'news_id': news_id,
+            'updates': updates,
+            'timestamp': datetime.now().isoformat()
+        })
+    
     async def start(self):
         """启动WebSocket服务器"""
         if self.is_running:
@@ -157,14 +185,16 @@ class WebSocketServer:
             return
             
         self.is_running = True
+        # 保存当前事件循环的引用
+        self._loop = asyncio.get_running_loop()
         logger.info(f"启动WebSocket服务器: ws://{self.host}:{self.port}")
         
         self.server = await websockets.serve(
             self.handler,
             self.host,
             self.port,
-            ping_interval=30,
-            ping_timeout=10
+            ping_interval=60,
+            ping_timeout=30
         )
         
         logger.info("WebSocket服务器启动成功")

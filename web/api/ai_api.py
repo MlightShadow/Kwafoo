@@ -179,26 +179,34 @@ class AIAPI:
             # 检查新闻是否存在
             news_list = db.get_news_by_id(params.news_id)
             if not news_list:
+                logger.error(f"新闻不存在: news_id={params.news_id}")
                 handler._send_error_response("新闻不存在")
                 return
 
             # 如果强制重新处理，先清除AI处理状态
             if params.force:
-                db.clear_ai_status(params.news_id)
+                logger.info(f"清除AI处理状态: news_id={params.news_id}")
+                if not db.clear_ai_status(params.news_id):
+                    logger.error(f"清除AI处理状态失败: news_id={params.news_id}")
+                    handler._send_error_response("清除AI处理状态失败")
+                    return
 
             # 添加到AI队列（完整分析任务）
+            logger.info(f"添加到AI队列: news_id={params.news_id}, task_type=all, priority=1")
             task_id = db.add_to_ai_queue(params.news_id, 'all', priority=1)
 
             if task_id > 0:
+                logger.info(f"成功添加到AI队列: task_id={task_id}, news_id={params.news_id}")
                 handler._send_json_response({
                     'success': True,
                     'message': '已将新闻添加到AI重新分析队列'
                 })
             else:
+                logger.error(f"添加到AI队列失败: task_id={task_id}, news_id={params.news_id}")
                 handler._send_error_response("添加到AI队列失败")
         except Exception as e:
-            logger.error(f"添加新闻重新分析任务失败: {e}")
-            handler._send_error_response(str(e))
+            logger.error(f"重新分析新闻时发生错误: {e}", exc_info=True)
+            handler._send_error_response(f"重新分析失败: {str(e)}")
 
 
 ai_api = AIAPI()

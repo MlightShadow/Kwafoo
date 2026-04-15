@@ -84,6 +84,7 @@ import ChatModal from '@/components/ChatModal.vue'
 import { useNewsStore } from '@/stores/news'
 import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
+import { useWebSocket } from '@/composables/useWebSocket'
 
 const router = useRouter()
 const route = useRoute()
@@ -160,6 +161,23 @@ function hideOfflineMessage() {
 }
 
 onMounted(async () => {
+  // 初始化WebSocket连接
+  const { onMessage, connect } = useWebSocket()
+  
+  // 手动连接WebSocket
+  connect()
+  
+  // 设置WebSocket消息监听
+  onMessage((message) => {
+    console.log('App.vue收到WebSocket消息:', message)
+    if (message.type === 'news_updated') {
+      console.log('处理news_updated消息:', message.news_id, message.updates)
+      newsStore.updateSingleNews(message.news_id, message.updates)
+    } else {
+      console.log('忽略其他类型的消息:', message.type)
+    }
+  })
+  
   await checkServerStatus()
   await configStore.loadConfig()
   
