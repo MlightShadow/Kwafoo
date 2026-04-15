@@ -25,7 +25,7 @@ class ProgressMonitor:
         cls._ws_broadcast_callback = callback
         logger.info("WebSocket广播已启用")
 
-    async def _broadcast(self, message_type: str, data: dict):
+    def _broadcast(self, message_type: str, data: dict):
         """通过WebSocket广播消息"""
         if self._ws_enabled and self._ws_broadcast_callback:
             try:
@@ -35,7 +35,8 @@ class ProgressMonitor:
                     **data,
                     'timestamp': datetime.now().isoformat()
                 }
-                await self._ws_broadcast_callback(message)
+                # 直接调用同步回调
+                self._ws_broadcast_callback(message)
             except Exception as e:
                 logger.error(f"WebSocket广播失败: {e}")
 
@@ -64,18 +65,9 @@ class ProgressMonitor:
         return self._tasks[task_id]
 
     def _safe_broadcast(self, message_type: str, data: dict):
-        """安全地广播消息，处理asyncio问题"""
+        """安全地广播消息"""
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.run_coroutine_threadsafe(
-                    self._broadcast(message_type, data),
-                    loop
-                )
-            else:
-                asyncio.run(self._broadcast(message_type, data))
-        except RuntimeError as e:
-            logger.debug(f"事件循环不可用，跳过广播: {e}")
+            self._broadcast(message_type, data)
         except Exception as e:
             logger.error(f"广播失败: {e}")
 

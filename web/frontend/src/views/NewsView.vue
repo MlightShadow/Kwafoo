@@ -271,18 +271,18 @@ onUnmounted(() => {
 
 .news-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
   gap: 1.5rem;
   width: 100%;
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1400px) {
   .news-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 768px) and (max-width: 1399px) {
   .news-grid {
     grid-template-columns: repeat(2, 1fr);
   }

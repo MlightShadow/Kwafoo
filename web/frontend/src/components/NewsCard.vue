@@ -1,5 +1,23 @@
 <template>
   <div class="news-card" :data-id="news.id" :class="{ 'ai-processing': aiProcessing }">
+    <!-- 图片背景装饰 -->
+    <div v-if="showThumbnail && imageUrl" class="news-card-background" :class="imagePositionClass">
+      <img 
+        :src="imageUrl" 
+        :alt="news.title" 
+        loading="lazy"
+        @error="handleImageError"
+        class="background-image"
+      >
+      <div class="background-overlay"></div>
+    </div>
+    
+    <!-- 分类颜色背景（无图片时） -->
+    <div v-else class="news-card-background category-background" :style="categoryBackgroundStyle">
+      <div class="background-overlay"></div>
+    </div>
+    
+    <!-- 重新分析按钮 -->
     <button 
       @click="handleReanalyze" 
       class="reanalyze-btn"
@@ -9,15 +27,9 @@
       <span v-if="aiProcessing" class="spinner"></span>
       <span v-else>🔄</span>
     </button>
+    
+    <!-- 主要内容区域 -->
     <div class="news-card-main">
-      <div v-if="showThumbnail" class="news-image">
-        <img 
-          :src="imageUrl" 
-          :alt="news.title" 
-          loading="lazy"
-          @error="handleImageError"
-        >
-      </div>
       <div class="news-info">
         <h3 class="news-title">{{ news.title }}</h3>
         <div class="news-meta">
@@ -41,6 +53,8 @@
         </div>
       </div>
     </div>
+    
+    <!-- AI摘要或描述 -->
     <div v-if="news.ai_summary" class="news-summary ai-generated">
       <div 
         ref="summaryHeaderRef"
@@ -185,7 +199,27 @@ async function handleShowFullDescription() {
 }
 
 const showThumbnail = computed(() => {
-  return configStore.config?.image_display?.show_thumbnail !== false
+  return configStore.config?.image_display?.show_thumbnail !== false && 
+         (props.news.image_data || props.news.image_url)
+})
+
+const imagePositionClass = computed(() => {
+  const position = configStore.config?.image_display?.position || 'left'
+  return `position-${position}`
+})
+
+const categoryBackgroundStyle = computed(() => {
+  const category = props.news.category || '未分类'
+  const categories = category.split(',')
+  const firstCategory = categories[0].trim()
+  
+  // 从数组中查找对应的分类配置
+  const categoryConfig = newsStore.categories.find(cat => cat.name === firstCategory)
+  const color = categoryConfig?.color || '#95a5a6'
+  
+  return {
+    background: color
+  }
 })
 
 async function handleMarkAsRead() {
@@ -222,43 +256,15 @@ async function handleReanalyze() {
   }
 }
 
-const categoryDefaultImage = computed(() => {
-  const category = props.news.category || '未分类'
-  
-  // 从store中获取分类配置
-  const categories = category.split(',')
-  const firstCategory = categories[0].trim()
-  
-  const categoryConfig = newsStore.categories[firstCategory]
-  if (!categoryConfig) {
-    // 如果没有找到分类配置，返回默认的灰色图片
-    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgZmlsbD0iIzk1YTVhNiIvPjwvc3ZnPg=='
-  }
-  
-  // 使用配置中的颜色生成纯色块占位图
-  const color = categoryConfig.color || '#95a5a6'
-  
-  // 创建纯色块SVG
-  const svg = `
-    <svg width="128" height="128" xmlns="http://www.w3.org/2000/svg">
-      <rect width="128" height="128" fill="${color}"/>
-    </svg>
-  `
-  
-  const base64 = btoa(svg)
-  return `data:image/svg+xml;base64,${base64}`
-})
-
 const imageUrl = computed(() => {
   if (imageLoadFailed.value) {
-    // 如果图片加载失败，直接返回占位图
-    return categoryDefaultImage.value
+    return null
   }
   
   if (props.news.image_data) {
     return `data:image/jpeg;base64,${props.news.image_data}`
   }
-  return props.news.image_url || categoryDefaultImage.value
+  return props.news.image_url || null
 })
 
 const categoryDisplayName = computed(() => {
@@ -266,8 +272,10 @@ const categoryDisplayName = computed(() => {
   
   const categories = props.news.category.split(',')
   const displayNames = categories.map(cat => {
-    const categoryConfig = newsStore.categories[cat]
-    return categoryConfig?.name || cat
+    const categoryName = cat.trim()
+    // 从数组中查找对应的分类配置
+    const categoryConfig = newsStore.categories.find(c => c.name === categoryName)
+    return categoryConfig?.name || categoryName
   })
   
   return displayNames.join('、')
@@ -316,44 +324,104 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 
 <style scoped>
 .news-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   overflow: hidden;
   background: white;
-  transition: box-shadow 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.news-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 .news-card.ai-processing {
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
+/* 图片背景装饰 */
+.news-card-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.news-card-background.position-left {
+  left: 0;
+}
+
+.news-card-background.position-right {
+  right: 0;
+}
+
+.news-card-background.category-background {
+  opacity: 0.15;
+}
+
+.background-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.25;
+  filter: blur(1px);
+}
+
+.background-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.35) 0%,
+    rgba(255,255,255,0.3) 30%,
+    rgba(255,255,255,0.2) 60%,
+    rgba(255,255,255,0.1) 100%
+  );
+}
+
+/* 重新分析按钮 */
 .reanalyze-btn {
   position: absolute;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.05);
-  border: none;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e5e7eb;
   border-radius: 50%;
   width: 28px;
   height: 28px;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0;
   transition: all 0.3s ease;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.news-card:hover .reanalyze-btn {
+  opacity: 1;
 }
 
 .reanalyze-btn:hover {
-  background: rgba(0, 0, 0, 0.1);
-  opacity: 1;
+  background: white;
   transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .reanalyze-btn:disabled {
@@ -365,9 +433,9 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(0, 123, 255, 0.3);
+  border: 2px solid rgba(102, 126, 234, 0.3);
   border-radius: 50%;
-  border-top-color: #007bff;
+  border-top-color: #667eea;
   animation: spin 0.8s ease-in-out infinite;
 }
 
@@ -377,26 +445,12 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   }
 }
 
+/* 主要内容区域 */
 .news-card-main {
   display: flex;
-  gap: 1rem;
   padding: 1rem;
-  align-items: flex-start;
-}
-
-.news-image {
-  width: 128px;
-  height: 128px;
-  flex-shrink: 0;
-  overflow: hidden;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.news-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  position: relative;
+  z-index: 1;
 }
 
 .news-info {
@@ -406,10 +460,12 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   min-width: 0;
 }
 
+/* 标题样式 */
 .news-title {
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
-  color: #333;
+  font-weight: 600;
+  color: #1f2937;
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -418,70 +474,145 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   -webkit-box-orient: vertical;
 }
 
+/* 元数据样式 */
 .news-meta {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.375rem;
   flex-wrap: wrap;
-  margin-bottom: 0.75rem;
-  font-size: 0.85rem;
-  color: #666;
+  margin-bottom: 0.625rem;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
+.news-category,
 .news-source,
-.news-time,
-.news-category {
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  background: #f5f5f5;
+.news-time {
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  font-weight: 500;
 }
 
+.news-category {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* 按钮样式 */
+.news-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.news-link,
+.read-toggle-btn {
+  padding: 0.375rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #4b5563;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.news-link:hover,
+.read-toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.read-toggle-btn.read {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.read-toggle-btn.read:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.read-toggle-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* AI摘要样式 */
 .news-summary {
-  padding: 0.75rem;
-  background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
-  border-left: 3px solid #28a745;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  color: #333;
+  padding: 0.625rem 1rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-left: 3px solid #10b981;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: #166534;
   line-height: 1.5;
   position: relative;
   z-index: 1;
+  margin: 0 1rem 1rem 1rem;
 }
 
 .news-summary.ai-generated {
-  color: #28a745;
   font-style: italic;
 }
 
 .summary-header {
   display: inline-flex;
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: 0.1875rem;
   cursor: help;
   position: relative;
   flex-wrap: wrap;
 }
 
 .summary-icon {
-  font-size: 1rem;
+  font-size: 0.875rem;
   flex-shrink: 0;
 }
 
 .summary-label {
   font-weight: 600;
-  color: #28a745;
+  color: #166534;
   flex-shrink: 0;
 }
 
 .summary-content {
-  color: #28a745;
+  color: #166534;
   font-style: italic;
   word-break: break-word;
 }
 
-.original-summary-tooltip {
+/* 描述样式 */
+.news-description {
+  padding: 0.625rem 1rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+  line-height: 1.5;
+  background: #f9fafb;
+  border-radius: 6px;
+  position: relative;
+  z-index: 1;
+  margin: 0 1rem 1rem 1rem;
+}
+
+.description-content {
+  cursor: help;
+}
+
+/* Tooltip样式 */
+.original-summary-tooltip,
+.full-description-tooltip {
   position: fixed;
   background: white;
-  border: 1px solid #e0e0e0;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
@@ -493,115 +624,27 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 
 .tooltip-header {
   font-weight: 600;
-  color: #333;
+  color: #1f2937;
   margin-bottom: 0.5rem;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 
 .tooltip-content {
-  color: #666;
-  font-size: 0.8rem;
+  color: #6b7280;
+  font-size: 0.875rem;
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
 }
 
-.news-description {
-  padding: 0.75rem;
-  font-size: 0.85rem;
-  color: #666;
-  line-height: 1.5;
-  background: #f9f9f9;
-  border-radius: 4px;
-  position: relative;
-}
-
-.description-content {
-  cursor: help;
-}
-
-.full-description-tooltip {
-  position: fixed;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 9999;
-  min-width: 280px;
-  max-width: 400px;
-  padding: 0.75rem;
-  pointer-events: auto;
-}
-
-.news-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.news-link {
-  display: inline-block;
-  padding: 0.4rem 0.8rem;
-  background: transparent;
-  border: 1px solid #007bff;
-  color: #007bff;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  text-align: center;
-}
-
-.news-link:hover {
-  background: #007bff;
-  color: white;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
-}
-
-.read-toggle-btn {
-  padding: 0.4rem 0.8rem;
-  background: transparent;
-  border: 1px solid #007bff;
-  color: #007bff;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.read-toggle-btn:hover {
-  background: #007bff;
-  color: white;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
-}
-
-.read-toggle-btn.read {
-  background: #007bff;
-  color: white;
-}
-
-.read-toggle-btn.read:hover {
-  background: #0056b3;
-}
-
-.read-toggle-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
+/* 响应式设计 */
 @media (max-width: 768px) {
   .news-card-main {
-    flex-direction: column;
+    padding: 0.875rem;
   }
   
-  .news-image {
-    width: 100%;
-    height: 128px;
+  .news-title {
+    font-size: 0.9375rem;
   }
   
   .news-actions {

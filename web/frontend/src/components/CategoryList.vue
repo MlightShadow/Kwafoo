@@ -4,7 +4,11 @@
       v-for="(category, name) in allCategories" 
       :key="name"
       class="category-btn"
-      :class="{ active: currentCategory === name }"
+      :class="{ 
+        active: currentCategory === name,
+        'has-color': category.color && category.color !== '#f3f4f6'
+      }"
+      :style="currentCategory === name ? {} : { background: category.color || '#f3f4f6' }"
       @click="selectCategory(name)"
     >
       <span class="category-icon">{{ category.icon || '📄' }}</span>
@@ -21,15 +25,16 @@ const newsStore = useNewsStore()
 
 const allCategories = computed(() => {
   const categories = {
-    '全部': { icon: '📰' },
-    '未分类': { icon: '📋' }
+    '全部': { icon: '📰', color: '#f3f4f6' },
+    '未分类': { icon: '📋', color: '#95a5a6' }
   }
   
   // 将数组转换为对象
   newsStore.categories.forEach(cat => {
     categories[cat.name] = {
       icon: cat.icon || '📄',
-      name: cat.name
+      name: cat.name,
+      color: cat.color || '#f3f4f6'
     }
   })
   
@@ -54,33 +59,50 @@ async function selectCategory(category: string) {
 .category-btn {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e0e0e0;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   background: white;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   text-align: left;
   width: 100%;
+  font-weight: 500;
+  color: #4b5563;
+  font-size: 0.875rem;
 }
 
 .category-btn:hover {
-  background: #f5f5f5;
-  border-color: #007bff;
+  background: #f9fafb;
+  border-color: #d1d5db;
+  transform: translateX(4px);
+}
+
+.category-btn.has-color:hover {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 
 .category-btn.active {
-  background: #007bff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  border-color: #007bff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.category-btn.has-color.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .category-icon {
-  font-size: 1.2rem;
+  font-size: 1.25rem;
 }
 
 .category-name {
-  font-weight: 500;
+  font-weight: 600;
 }
 </style>

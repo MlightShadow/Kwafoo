@@ -173,6 +173,15 @@ onMounted(async () => {
     if (message.type === 'news_updated') {
       console.log('处理news_updated消息:', message.news_id, message.updates)
       newsStore.updateSingleNews(message.news_id, message.updates)
+    } else if (message.type === 'task_started') {
+      console.log('处理task_started消息:', message.task_id, message.task_name)
+      // 可以在这里添加任务开始的逻辑
+    } else if (message.type === 'progress_update') {
+      console.log('处理progress_update消息:', message.task_id, message.progress, message.message)
+      // 可以在这里添加进度更新的逻辑
+    } else if (message.type === 'task_completed') {
+      console.log('处理task_completed消息:', message.task_id, message.task_name, message.success)
+      // 可以在这里添加任务完成的逻辑
     } else {
       console.log('忽略其他类型的消息:', message.type)
     }
@@ -216,8 +225,9 @@ onUnmounted(() => {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f5f5;
-  color: #333;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  color: #1f2937;
+  line-height: 1.6;
 }
 
 .app-container {
@@ -229,18 +239,21 @@ body {
 .app-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2rem 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .app-header h1 {
-  font-size: 2rem;
+  font-size: 2.25rem;
   margin-bottom: 0.5rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .subtitle {
-  opacity: 0.9;
-  font-size: 1rem;
+  opacity: 0.95;
+  font-size: 1.125rem;
+  font-weight: 300;
 }
 
 .container {
@@ -250,10 +263,11 @@ body {
 }
 
 .top-nav {
-  background: white;
-  border-bottom: 1px solid #e0e0e0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid #e5e7eb;
   padding: 1rem 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   position: sticky;
   top: 0;
   z-index: 1000;
@@ -272,20 +286,20 @@ body {
 
 .nav-link {
   padding: 0.75rem 1.5rem;
-  color: #333;
+  color: #4b5563;
   text-decoration: none;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-weight: 600;
 }
 
 .nav-link:hover {
-  background: #f5f5f5;
-  color: #007bff;
+  background: #f3f4f6;
+  color: #667eea;
 }
 
 .nav-link.active {
-  background: #007bff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
 }
 
@@ -298,19 +312,34 @@ body {
 .search-input {
   flex: 1;
   padding: 0.75rem 1rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   font-size: 1rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .search-btn {
   padding: 0.75rem 1.5rem;
-  background: #007bff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .status-section {
@@ -343,12 +372,12 @@ body {
 }
 
 .status-running {
-  color: #007bff;
+  color: #667eea;
   font-weight: 500;
 }
 
 .status-idle {
-  color: #28a745;
+  color: #10b981;
 }
 
 .main-content {
@@ -359,7 +388,7 @@ body {
 }
 
 .sidebar {
-  flex: 0 0 250px;
+  flex: 0 0 280px;
   position: sticky;
   top: 6rem;
   height: calc(100vh - 8rem);
@@ -374,23 +403,24 @@ body {
   position: fixed;
   bottom: 2rem;
   right: 2rem;
-  width: 60px;
-  height: 60px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  background: #007bff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  transition: transform 0.3s ease;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
   z-index: 1000;
 }
 
 .chat-fab:hover {
-  transform: scale(1.1);
+  transform: scale(1.1) translateY(-4px);
+  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
 }
 
 .server-offline-message {
@@ -421,31 +451,31 @@ body {
 
 .offline-text h3 {
   margin-bottom: 1rem;
-  color: #333;
+  color: #1f2937;
 }
 
 .offline-text p {
   margin-bottom: 1.5rem;
-  color: #666;
+  color: #6b7280;
 }
 
 .retry-button,
 .close-button {
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
   margin: 0 0.5rem;
 }
 
 .retry-button {
-  background: #007bff;
+  background: #667eea;
   color: white;
 }
 
 .close-button {
-  background: #6c757d;
+  background: #6b7280;
   color: white;
 }
 </style>
