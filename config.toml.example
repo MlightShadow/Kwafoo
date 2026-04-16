@@ -1175,3 +1175,15 @@ level = "INFO"
 file = "data/logs/kwafoo.log"
 max_size = 10485760
 backup_count = 5
+
+[compression]
+# 是否启用文本压缩
+enable_compression = true
+# 目标token数（默认2000，约5000字符）
+target_tokens = 2000
+# 压缩级别：balanced（平衡）、aggressive（激进）、conservative（保守）
+compression_level = "balanced"
+# 压缩算法：auto（自动选择）、default（默认算法）、textrank（textrank4zh算法）
+algorithm = "auto"
+# 压缩模式：summary（摘要）、keypoints（要点）、qa（问答）
+mode = "summary"

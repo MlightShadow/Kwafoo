@@ -134,6 +134,43 @@ class ConfigValidator:
         return errors
     
     @staticmethod
+    def validate_compression(config: Dict[str, Any]) -> List[ConfigValidationError]:
+        """验证压缩配置"""
+        errors = []
+        
+        if 'enable_compression' in config:
+            if not isinstance(config['enable_compression'], bool):
+                errors.append(ConfigValidationError('compression.enable_compression', '压缩开关必须是布尔值'))
+        
+        if 'target_tokens' in config:
+            if not isinstance(config['target_tokens'], int):
+                errors.append(ConfigValidationError('compression.target_tokens', '目标Token数必须是整数'))
+            elif config['target_tokens'] < 100:
+                errors.append(ConfigValidationError('compression.target_tokens', '目标Token数不能小于100'))
+            elif config['target_tokens'] > 10000:
+                errors.append(ConfigValidationError('compression.target_tokens', '目标Token数不能大于10000'))
+        
+        if 'compression_level' in config:
+            if not isinstance(config['compression_level'], str):
+                errors.append(ConfigValidationError('compression.compression_level', '压缩级别必须是字符串'))
+            elif config['compression_level'] not in ['balanced', 'aggressive', 'conservative']:
+                errors.append(ConfigValidationError('compression.compression_level', '压缩级别必须是balanced、aggressive或conservative'))
+        
+        if 'algorithm' in config:
+            if not isinstance(config['algorithm'], str):
+                errors.append(ConfigValidationError('compression.algorithm', '压缩算法必须是字符串'))
+            elif config['algorithm'] not in ['auto', 'default', 'textrank']:
+                errors.append(ConfigValidationError('compression.algorithm', '压缩算法必须是auto、default或textrank'))
+        
+        if 'mode' in config:
+            if not isinstance(config['mode'], str):
+                errors.append(ConfigValidationError('compression.mode', '压缩模式必须是字符串'))
+            elif config['mode'] not in ['summary', 'keypoints', 'qa']:
+                errors.append(ConfigValidationError('compression.mode', '压缩模式必须是summary、keypoints或qa'))
+        
+        return errors
+    
+    @staticmethod
     def validate_image(config: Dict[str, Any]) -> List[ConfigValidationError]:
         """验证图片配置"""
         errors = []
