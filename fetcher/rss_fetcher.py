@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from utils.logger import logger
 from utils.image_processor import image_processor
 from utils.helpers import config
+from fetcher.content_fetcher import content_fetcher
 
 
 class RSSFetcher:
@@ -114,10 +115,12 @@ class RSSFetcher:
                     logger.debug(f"新闻发布时间超过 {fetch_days} 天，跳过: {title} ({publish_time})")
                     return None
             
-            return {
+            # 初始化结果
+            result = {
                 'title': title,
-                'description': description,
+                'description': description,  # RSS描述就是摘要
                 'content': None,
+                'compressed_content': None,
                 'url': link,
                 'source': source_name,
                 'category': None,
@@ -125,6 +128,23 @@ class RSSFetcher:
                 'is_visible': 1,
                 'image_url': image_url
             }
+            
+            # 如果启用正文抓取
+            if config.get('content_fetch.enable_content_fetch', False):
+                try:
+                    content_result = content_fetcher.fetch_content(link)
+                    
+                    # 更新结果
+                    result['content'] = content_result.get('content')
+                    result['compressed_content'] = content_result.get('compressed_content')
+                    
+                    logger.debug(f"正文抓取成功: {title}")
+                    
+                except Exception as e:
+                    logger.warning(f"正文抓取失败: {title} - {e}")
+                    # 不影响RSS抓取流程，description就是摘要
+            
+            return result
             
         except Exception as e:
             logger.error(f"RSS条目解析失败: {e}")

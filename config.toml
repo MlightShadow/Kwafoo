@@ -160,6 +160,22 @@ algorithm = "auto"
 mode = "summary"
 max_image_size = 5242880
 
+[content_fetch]
+# 是否启用正文抓取
+enable_content_fetch = true
+# 提取算法：density, dom, hybrid
+algorithm = "hybrid"
+# 最小正文长度（字符）
+min_content_length = 200
+# 最大正文长度（字符，超过则压缩）
+max_content_length = 10000
+# 超时时间（秒）
+timeout = 30
+# 是否使用代理
+use_proxy = true
+# 是否缓存已抓取的正文
+enable_cache = true
+
 [image.display]
 position = "right"  # "right" 或 "left"
 show_thumbnail = true  # 是否显示缩略图

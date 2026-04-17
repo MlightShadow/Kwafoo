@@ -61,23 +61,17 @@ class AINewsProcessor:
             should_do_summary = manual or self.enable_ai_summary
             
             if should_do_summary:
-                # 检查描述是否为空，如果为空则使用标题
-                text_to_summarize = description or content or title
-                
-                if not text_to_summarize or not text_to_summarize.strip():
-                    logger.debug(f"描述和标题均为空，跳过AI摘要: ID={news_id}")
-                else:
-                    try:
-                        summary = ai_summarizer.generate_summary(content, text_to_summarize)
-                        if summary:
-                            if db.update_news_summary(news_id, summary):
-                                result['summary_updated'] = True
-                                summary_updated = True
-                                logger.debug(f"新闻摘要已更新: ID={news_id}")
+                try:
+                    summary = ai_summarizer.generate_summary(content, description, title)
+                    if summary:
+                        if db.update_news_summary(news_id, summary):
+                            result['summary_updated'] = True
+                            summary_updated = True
+                            logger.debug(f"新闻摘要已更新: ID={news_id}")
                         else:
                             logger.debug(f"AI摘要返回空结果: ID={news_id}")
-                    except Exception as e:
-                        logger.warning(f"AI摘要失败: ID={news_id}, error={e}")
+                except Exception as e:
+                    logger.warning(f"AI摘要失败: ID={news_id}, error={e}")
             elif not should_do_summary:
                 logger.debug(f"AI摘要未启用，跳过: ID={news_id}")
             else:
@@ -276,9 +270,7 @@ class AINewsProcessor:
                     description = news_data.get('description', '')
                     content = news_data.get('content', '')
                     title = news_data.get('title', '')
-                    # 如果description为空，使用title作为输入
-                    text_to_summarize = description or content or title
-                    summary = ai_summarizer.generate_summary(content, text_to_summarize)
+                    summary = ai_summarizer.generate_summary(content, description, title)
                     if summary:
                         db.update_news_summary(news_id, summary)
                         logger.debug(f"新闻摘要已更新: ID={news_id}")

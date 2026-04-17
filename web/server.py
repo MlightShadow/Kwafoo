@@ -268,6 +268,7 @@ class HTTPServerManager:
         router.register_get('/api/news/stats', news_api.get_news_stats)
         router.register_get('/api/news/read', news_api.get_read_news)
         router.register_get('/api/news/unread', news_api.get_unread_news)
+        router.register_get('/api/news/detail', news_api.get_news_detail)
         router.register_get('/api/chat', chat_api.chat)
         router.register_get('/api/progress', system_api.get_progress)
         router.register_get('/api/health', system_api.health_check)

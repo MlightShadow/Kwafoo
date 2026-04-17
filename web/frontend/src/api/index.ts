@@ -57,6 +57,26 @@ class APIClient {
     return this.client.get(`/news/unread?limit=${limit}`)
   }
 
+  async getNewsDetail(id: number): Promise<AxiosResponse<{ 
+    success: boolean; 
+    data: News; 
+    all_fields: Record<string, string>; 
+    debug_info: Record<string, string>;
+    ai_history: Array<{
+      id: number;
+      news_id: number;
+      task_type: string;
+      status: string;
+      priority: number;
+      retry_count: number;
+      error_message: string | null;
+      created_at: string;
+      updated_at: string;
+    }>
+  }>> {
+    return this.client.get(`/news/detail?id=${id}`)
+  }
+
   // Chat API
   async chat(message: string, category?: string | null, sessionId?: string | null): Promise<AxiosResponse<ChatResponse>> {
     return this.client.post('/chat', {

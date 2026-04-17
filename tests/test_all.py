@@ -64,7 +64,8 @@ def test_ai_summarizer(news):
     
     summary = ai_summarizer.generate_summary(
         news.get('content'),
-        news.get('description')
+        news.get('description'),
+        news.get('title')
     )
     
     if summary:

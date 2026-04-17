@@ -12,12 +12,14 @@ from utils.validators import (
     validate_mark_as_read_params,
     validate_get_read_news_params,
     validate_get_unread_news_params,
+    validate_get_news_detail_params,
     GetNewsParams,
     SearchNewsParams,
     GetNewsByCategoryParams,
     MarkAsReadParams,
     GetReadNewsParams,
-    GetUnreadNewsParams
+    GetUnreadNewsParams,
+    GetNewsDetailParams
 )
 
 
@@ -155,6 +157,66 @@ class NewsAPI:
             })
         except Exception as e:
             logger.error(f"获取未读新闻失败: {e}")
+            handler._send_error_response(str(e))
+
+    @validate_get_news_detail_params
+    def get_news_detail(self, handler, params: GetNewsDetailParams):
+        """
+        获取新闻详情（包含所有字段和AI处理历史）
+        """
+        try:
+            news_list = db.get_news_by_id(params.id)
+            
+            if not news_list:
+                handler._send_error_response("新闻不存在")
+                return
+            
+            news_data = news_list[0]
+            
+            # 获取AI处理历史
+            ai_history = db.get_ai_processing_history(params.id)
+            
+            # 构建完整的字段信息（所有数据库字段）
+            all_fields = {
+                'ID': news_data.get('id'),
+                '标题': news_data.get('title'),
+                '描述': news_data.get('description'),
+                'AI摘要': news_data.get('ai_summary'),
+                '正文': news_data.get('content'),
+                '压缩正文': news_data.get('compressed_content'),
+                'URL': news_data.get('url'),
+                '来源': news_data.get('source'),
+                '来源URL': news_data.get('source_url'),
+                '分类': news_data.get('category') or '未分类',
+                '发布时间': news_data.get('publish_time'),
+                '抓取时间': news_data.get('fetch_time'),
+                '可见状态': '可见' if news_data.get('is_visible') else '不可见',
+                'AI处理状态': '已处理' if news_data.get('ai_processed') else '未处理',
+                '图片URL': news_data.get('image_url'),
+                '图片数据': '有' if news_data.get('image_data') else '无',
+                '阅读状态': '已读' if news_data.get('is_read') else '未读',
+                '删除状态': '已删除' if news_data.get('is_deleted') else '未删除'
+            }
+            
+            # 构建调试信息（长度和统计）
+            debug_info = {
+                '正文长度': len(news_data.get('content') or ''),
+                '压缩正文长度': len(news_data.get('compressed_content') or ''),
+                '描述长度': len(news_data.get('description') or ''),
+                'AI摘要长度': len(news_data.get('ai_summary') or ''),
+                '标题长度': len(news_data.get('title') or ''),
+                'AI处理历史记录数': len(ai_history)
+            }
+            
+            handler._send_json_response({
+                'success': True,
+                'data': news_data,
+                'all_fields': all_fields,
+                'debug_info': debug_info,
+                'ai_history': ai_history
+            })
+        except Exception as e:
+            logger.error(f"获取新闻详情失败: {e}")
             handler._send_error_response(str(e))
 
 

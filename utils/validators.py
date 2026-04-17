@@ -148,6 +148,10 @@ if HAS_PYDANTIC:
         """获取未读新闻参数"""
         limit: int = Field(default=100, ge=1, le=500, description="返回数量")
     
+    class GetNewsDetailParams(BaseModel):
+        """获取新闻详情参数"""
+        id: int = Field(..., gt=0, description="新闻ID")
+    
     class UpdateConfigParams(BaseModel):
         """更新配置参数"""
         config: Dict[str, Any] = Field(..., description="配置数据")
@@ -196,6 +200,11 @@ def validate_process_news_summary_params(func):
 def validate_process_news_reanalyze_params(func):
     """处理新闻重新分析参数验证装饰器"""
     return validate_params(ProcessNewsParams)(func)
+
+
+def validate_get_news_detail_params(func):
+    """获取新闻详情参数验证装饰器"""
+    return validate_params(GetNewsDetailParams)(func)
 
 
 def validate_mark_as_read_params(func):

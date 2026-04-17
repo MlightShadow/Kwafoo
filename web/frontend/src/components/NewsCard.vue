@@ -33,30 +33,39 @@
       <div class="news-info">
         <h3 class="news-title">{{ news.title }}</h3>
         <div class="news-meta">
-          <span 
-            v-for="(category, index) in categoryList" 
-            :key="index"
-            class="news-category"
-            :style="{ background: category.color || '#f3f4f6' }"
-          >
-            {{ category.name }}
-          </span>
-          <span class="news-source">{{ news.source }}</span>
-          <span class="news-time">{{ formatTime(news.publish_time) }}</span>
-        </div>
-        <div class="news-actions">
-          <a v-if="news.url" :href="news.url" target="_blank" class="news-link">
-            📖 阅读原文
-          </a>
-          <button 
-            @click="handleMarkAsRead" 
-            class="read-toggle-btn"
-            :class="{ read: news.is_read }"
-            :disabled="markingAsRead"
-            :title="news.is_read ? '标记为未读' : '标记为已读'"
-          >
-            {{ news.is_read ? '✓ 已读' : '○ 未读' }}
-          </button>
+          <div class="meta-left">
+            <span class="news-source">{{ news.source }}</span>
+            <span class="news-time">{{ formatTime(news.publish_time) }}</span>
+            <span 
+              v-for="(category, index) in categoryList" 
+              :key="index"
+              class="news-category"
+              :style="{ background: category.color || '#f3f4f6' }"
+            >
+              {{ category.name }}
+            </span>
+          </div>
+          <div class="news-actions">
+            <a v-if="news.url" :href="news.url" target="_blank" class="news-link" title="阅读原文">
+              🔗
+            </a>
+            <button 
+              @click="handleShowDetail" 
+              class="detail-btn"
+              title="查看详情"
+            >
+              📋
+            </button>
+            <button 
+              @click="handleMarkAsRead" 
+              class="read-toggle-btn"
+              :class="{ read: news.is_read }"
+              :disabled="markingAsRead"
+              :title="news.is_read ? '标记为未读' : '标记为已读'"
+            >
+              {{ news.is_read ? '✓' : '○' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -107,6 +116,14 @@
       <div class="tooltip-content">{{ news.description }}</div>
     </div>
   </Teleport>
+
+  <!-- 新闻详情模态框 -->
+  <NewsDetailModal 
+    :is-open="showDetailModal"
+    :news-id="news.id"
+    @close="showDetailModal = false"
+    ref="detailModalRef"
+  />
 </template>
 
 <script setup lang="ts">
@@ -115,6 +132,7 @@ import { useNewsStore } from '@/stores/news'
 import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
 import type { News } from '@/types/news'
+import NewsDetailModal from './NewsDetailModal.vue'
 
 interface Props {
   news: News
@@ -127,11 +145,13 @@ const markingAsRead = ref(false)
 const aiProcessing = ref(false)
 const showOriginalSummary = ref(false)
 const showFullDescription = ref(false)
+const showDetailModal = ref(false)
 const imageLoadFailed = ref(false)
 const summaryHeaderRef = ref<HTMLElement | null>(null)
 const descriptionRef = ref<HTMLElement | null>(null)
 const originalSummaryTooltipRef = ref<HTMLElement | null>(null)
 const fullDescriptionTooltipRef = ref<HTMLElement | null>(null)
+const detailModalRef = ref<InstanceType<typeof NewsDetailModal> | null>(null)
 const tooltipStyle = ref<Record<string, string>>({})
 const descriptionTooltipStyle = ref<Record<string, string>>({})
 
@@ -261,6 +281,14 @@ async function handleReanalyze() {
     console.error('重新分析失败:', error)
     aiProcessing.value = false
   }
+}
+
+function handleShowDetail() {
+  showDetailModal.value = true
+  // 加载新闻详情
+  nextTick(() => {
+    detailModalRef.value?.loadNewsDetail()
+  })
 }
 
 const imageUrl = computed(() => {
@@ -487,11 +515,19 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 /* 元数据样式 */
 .news-meta {
   display: flex;
-  gap: 0.375rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
   margin-bottom: 0.625rem;
   font-size: 0.75rem;
   color: #6b7280;
+}
+
+.meta-left {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .news-category,
@@ -512,19 +548,22 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 .news-actions {
   display: flex;
   gap: 0.5rem;
-  margin-top: 0.375rem;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .news-link,
-.read-toggle-btn {
-  padding: 0.375rem 0.75rem;
-  border: 1px solid #e5e7eb;
-  background: white;
+.read-toggle-btn,
+.detail-btn {
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
   color: #4b5563;
   text-decoration: none;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 1.125rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -534,26 +573,36 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 }
 
 .news-link:hover,
-.read-toggle-btn:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-  transform: translateY(-1px);
+.read-toggle-btn:hover,
+.detail-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  transform: scale(1.05);
+}
+
+.detail-btn {
+  color: #667eea;
+}
+
+.detail-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
 }
 
 .read-toggle-btn.read {
-  background: #10b981;
-  color: white;
-  border-color: #10b981;
+  color: #10b981;
 }
 
 .read-toggle-btn.read:hover {
-  background: #059669;
-  border-color: #059669;
+  background: rgba(16, 185, 129, 0.1);
 }
 
 .read-toggle-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.4;
   cursor: not-allowed;
+}
+
+.read-toggle-btn:disabled:hover {
+  transform: none;
+  background: transparent;
 }
 
 /* AI摘要样式 */

@@ -3,7 +3,7 @@ import os
 import base64
 import threading
 from typing import List, Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from utils.logger import logger
 from utils.helpers import config
 from utils.image_processor import image_processor
@@ -40,6 +40,19 @@ class DatabaseManager:
         connection.row_factory = sqlite3.Row
         logger.info(f"数据库连接成功: {db_path}")
         return connection
+    
+    def _get_beijing_time(self) -> str:
+        """获取北京时间（东8区）的当前时间
+        
+        Returns:
+            格式化的北京时间字符串
+        """
+        # 创建东8区时区
+        beijing_tz = timezone(timedelta(hours=8))
+        # 获取当前时间并转换为东8区时间
+        beijing_time = datetime.now(beijing_tz)
+        # 格式化为字符串
+        return beijing_time.strftime('%Y-%m-%d %H:%M:%S')
 
     @property
     def _connection(self) -> sqlite3.Connection:
@@ -229,6 +242,11 @@ class DatabaseManager:
                 cursor.execute("ALTER TABLE news ADD COLUMN is_read BOOLEAN DEFAULT 0")
                 logger.info("数据库迁移：添加 is_read 字段")
             
+            # 添加 compressed_content 字段
+            if 'compressed_content' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN compressed_content TEXT")
+                logger.info("数据库迁移：添加 compressed_content 字段")
+            
             self._connection.commit()
             
         except Exception as e:
@@ -299,16 +317,20 @@ class DatabaseManager:
                 if result:
                     image_url, image_data = result
             
+            # 获取北京时间
+            fetch_time = self._get_beijing_time()
+            
             cursor.execute('''
                 INSERT INTO news (
-                    title, description, ai_summary, content, url, 
-                    source, source_url, category, publish_time, is_visible, image_url, image_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    title, description, ai_summary, content, compressed_content, url, 
+                    source, source_url, category, publish_time, is_visible, image_url, image_data, fetch_time
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 news_data.get('title'),
                 news_data.get('description'),
                 news_data.get('ai_summary'),
                 news_data.get('content'),
+                news_data.get('compressed_content'),
                 news_data.get('url'),
                 news_data.get('source'),
                 news_data.get('source_url'),
@@ -316,7 +338,8 @@ class DatabaseManager:
                 news_data.get('publish_time'),
                 news_data.get('is_visible', 1),
                 image_url,
-                image_data
+                image_data,
+                fetch_time
             ))
             
             news_id = cursor.lastrowid
@@ -334,12 +357,17 @@ class DatabaseManager:
             if result and result[1] == 1:
                 # 如果是被标记为删除的记录，则更新它
                 news_id = result[0]
+                
+                # 获取北京时间
+                fetch_time = self._get_beijing_time()
+                
                 cursor.execute('''
                     UPDATE news SET
                         title = ?,
                         description = ?,
                         ai_summary = ?,
                         content = ?,
+                        compressed_content = ?,
                         source = ?,
                         source_url = ?,
                         category = ?,
@@ -348,13 +376,14 @@ class DatabaseManager:
                         image_url = ?,
                         image_data = ?,
                         is_deleted = 0,
-                        fetch_time = CURRENT_TIMESTAMP
+                        fetch_time = ?
                     WHERE id = ?
                 ''', (
                     news_data.get('title'),
                     news_data.get('description'),
                     news_data.get('ai_summary'),
                     news_data.get('content'),
+                    news_data.get('compressed_content'),
                     news_data.get('source'),
                     news_data.get('source_url'),
                     news_data.get('category'),
@@ -362,6 +391,7 @@ class DatabaseManager:
                     news_data.get('is_visible', 1),
                     image_url,
                     image_data,
+                    fetch_time,
                     news_id
                 ))
                 
@@ -667,6 +697,73 @@ class DatabaseManager:
                 logger.error(f"数据库回滚失败: {rollback_error}")
             return False
 
+    def update_news_content(self, news_id: int, content: str = None,
+                            compressed_content: str = None) -> bool:
+        """
+        更新新闻正文相关字段
+        
+        Args:
+            news_id: 新闻ID
+            content: 完整正文
+            compressed_content: 压缩后的正文
+            
+        Returns:
+            是否更新成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            
+            # 构建更新SQL
+            update_fields = []
+            params = []
+            
+            if content is not None:
+                update_fields.append("content = ?")
+                params.append(content)
+            
+            if compressed_content is not None:
+                update_fields.append("compressed_content = ?")
+                params.append(compressed_content)
+            
+            if not update_fields:
+                logger.warning("没有需要更新的字段")
+                return False
+            
+            params.append(news_id)
+            
+            sql = f"UPDATE news SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(sql, params)
+            
+            self._connection.commit()
+            logger.info(f"新闻内容更新成功: ID={news_id}")
+            
+            # WebSocket广播
+            if self._ws_broadcast_callback:
+                try:
+                    updates = {}
+                    if content is not None:
+                        updates['content'] = content
+                    if compressed_content is not None:
+                        updates['compressed_content'] = compressed_content
+                    
+                    self._ws_broadcast_callback({
+                        'type': 'news_updated',
+                        'news_id': news_id,
+                        'updates': updates
+                    })
+                except Exception as e:
+                    logger.warning(f"WebSocket广播失败: {e}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"新闻内容更新失败: {e}")
+            try:
+                self._connection.rollback()
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
+            return False
+
     def mark_all_news_deleted(self) -> int:
         """
         标记所有新闻为已删除状态
@@ -857,6 +954,29 @@ class DatabaseManager:
             logger.error(f"更新AI任务状态失败: {e}")
             self._connection.rollback()
             return False
+
+    def get_ai_processing_history(self, news_id: int) -> List[Dict]:
+        """
+        获取新闻的AI处理历史记录
+
+        Args:
+            news_id: 新闻ID
+
+        Returns:
+            AI处理历史列表
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM ai_processing_queue
+                WHERE news_id = ?
+                ORDER BY created_at DESC
+            ''', (news_id,))
+            
+            return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"获取AI处理历史失败: {e}")
+            return []
 
     def get_ai_queue_stats(self) -> Dict[str, int]:
         """

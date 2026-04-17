@@ -17,6 +17,7 @@ CREATE TABLE news (
     description TEXT,
     ai_summary TEXT,
     content TEXT,
+    compressed_content TEXT,
     url TEXT UNIQUE,
     source TEXT NOT NULL,
     category TEXT,
@@ -37,9 +38,10 @@ CREATE TABLE news (
 |--------|------|------|------|
 | id | INTEGER | 是 | 主键，自增 |
 | title | TEXT | 是 | 新闻标题（必须抓取） |
-| description | TEXT | 否 | 抓取的原始描述（RSS必须抓取，网页可选） |
+| description | TEXT | 否 | 抓取的原始描述（RSS必须抓取，网页可选）**就是摘要** |
 | ai_summary | TEXT | 否 | AI生成的摘要 |
-| content | TEXT | 否 | 新闻正文（不一定抓取，取决于描述情况） |
+| content | TEXT | 否 | 新闻正文（完整正文，不一定抓取） |
+| compressed_content | TEXT | 否 | 压缩后的正文（2000-2500字） |
 | url | TEXT | 是 | 新闻链接（唯一，用于点击跳转） |
 | source | TEXT | 是 | 新闻来源名称（RSS源名称或网站名称） |
 | category | TEXT | 否 | 新闻分类（多个分类用逗号分隔，如"科技,互联网"） |
@@ -51,6 +53,19 @@ CREATE TABLE news (
 | image_data | BLOB | 否 | 压缩后的图片数据（Base64编码） |
 | is_deleted | BOOLEAN | 是 | 是否已删除（默认0） |
 | is_read | BOOLEAN | 是 | 是否已读（默认0） |
+
+#### 摘要字段说明
+
+**重要说明：**
+- `description`：RSS描述，**就是摘要**，不生成额外的summary字段
+- `ai_summary`：AI生成的摘要（将来由AI处理）
+- 摘要优先级：`description` > `ai_summary` > `title`
+
+#### 正文字段说明
+
+- `content`：完整正文（从网页抓取，可能为空）
+- `compressed_content`：压缩后的正文（2000-2500字，使用HybridCompressor压缩）
+- 如果正文长度超过`max_content_length`（默认10000字符），则自动压缩
 
 #### AI处理状态说明
 

@@ -121,38 +121,41 @@ class AISummarizer(ConfigObserver):
         self.comment_stance = ai_config.get('comment_stance', {})
         self.enable_reasoning = ai_config.get('enable_summarizer_reasoning', False)
 
-    def generate_summary(self, content: str, description: Optional[str] = None) -> Optional[str]:
+    def generate_summary(self, content: str, description: Optional[str] = None, title: Optional[str] = None) -> Optional[str]:
         try:
             # AI摘要始终可以执行（不受配置控制）
             # 配置只影响自动执行，不影响手动调用
             
-            if description:
-                # 如果描述为空，不做AI摘要
-                if not description or not description.strip():
-                    logger.debug("描述为空，不做AI摘要")
-                    return None
-                
-                # 检测是否包含中文
-                has_chinese = contains_chinese(description)
-                
-                # 不论长度如何，只要不包含中文就进行AI摘要并翻译为中文
-                if not has_chinese:
-                    logger.debug("描述不包含中文，进行AI摘要并翻译为中文")
-                    prompt = self._build_translate_and_summarize_prompt(description)
-                # 包含中文且长度超过阈值，进行AI摘要
-                elif len(description) > self.description_threshold:
-                    logger.debug("描述包含中文且长度超过阈值，进行AI摘要")
-                    prompt = self._build_rewrite_prompt(description)
-                # 包含中文且长度未超过阈值，不做AI摘要
-                else:
-                    logger.debug("描述包含中文且长度正常，无需AI摘要")
-                    return None
+            # 确定输入内容优先级：正文 > description > 标题
+            input_content = None
+            input_type = None
+            
+            if content and content.strip():
+                input_content = content
+                input_type = "正文"
+            elif description and description.strip():
+                input_content = description
+                input_type = "描述"
+            elif title and title.strip():
+                input_content = title
+                input_type = "标题"
             else:
-                if not content:
-                    logger.warning("无内容可生成摘要")
-                    return None
-                
-                prompt = self._build_summary_prompt(content)
+                logger.warning("无内容可生成摘要")
+                return None
+            
+            logger.debug(f"使用{input_type}进行AI摘要，长度: {len(input_content)}")
+            
+            # 检测是否包含中文
+            has_chinese = contains_chinese(input_content)
+            
+            # 不论长度如何，只要不包含中文就进行AI摘要并翻译为中文
+            if not has_chinese:
+                logger.debug("内容不包含中文，进行AI摘要并翻译为中文")
+                prompt = self._build_translate_and_summarize_prompt(input_content)
+            # 包含中文，始终进行AI摘要（包括一句话评价）
+            else:
+                logger.debug("内容包含中文，进行AI摘要（包含一句话评价）")
+                prompt = self._build_rewrite_prompt(input_content)
             
             logger.debug("开始生成AI摘要")
             
@@ -228,7 +231,7 @@ class AISummarizer(ConfigObserver):
         truncated_content = smart_truncate(content, self.max_input_length)
         if self.enable_summary_comment:
             personality = self._build_personality_description()
-            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后生成新闻摘要（不超过140字）：
+            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后生成新闻摘要：
 
 {personality}
 
@@ -236,16 +239,16 @@ class AISummarizer(ConfigObserver):
 
 要求：
 1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
-2. 第二部分：准确概括核心内容，简洁明了，不超过140字
+2. 第二部分：准确概括核心内容，简洁明了
 3. 必须使用中文书写，不能使用全英文
 4. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
         else:
-            return f"""请将以下新闻内容改写为简洁摘要（不超过140字）：
+            return f"""请将以下新闻内容改写为简洁摘要：
 
 {truncated_content}
 
 要求：
-1. 准确概括核心内容，简洁明了，不超过140字
+1. 准确概括核心内容，简洁明了
 2. 必须使用中文书写，不能使用全英文
 3. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
 
@@ -253,7 +256,7 @@ class AISummarizer(ConfigObserver):
         truncated_description = smart_truncate(description, self.max_input_length)
         if self.enable_summary_comment:
             personality = self._build_personality_description()
-            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后改写新闻描述为摘要（不超过140字）：
+            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后改写新闻描述为摘要：
 
 {personality}
 
@@ -261,16 +264,16 @@ class AISummarizer(ConfigObserver):
 
 要求：
 1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
-2. 第二部分：准确概括核心内容，简洁明了，不超过140字
+2. 第二部分：准确概括核心内容，简洁明了
 3. 必须使用中文书写，不能使用全英文
 4. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
         else:
-            return f"""请将以下新闻描述改写为简洁摘要（不超过140字）：
+            return f"""请将以下新闻描述改写为简洁摘要：
 
 {truncated_description}
 
 要求：
-1. 准确概括核心内容，简洁明了，不超过140字
+1. 准确概括核心内容，简洁明了
 2. 必须使用中文书写，不能使用全英文
 3. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
 
@@ -279,7 +282,7 @@ class AISummarizer(ConfigObserver):
         truncated_description = smart_truncate(description, self.max_input_length)
         if self.enable_summary_comment:
             personality = self._build_personality_description()
-            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后将以下新闻内容翻译为中文，并改写为简洁摘要（不超过140字）：
+            return f"""请根据以下人格设定，先给出一句简短的点评（包含emoji表情），然后将以下新闻内容翻译为中文，并改写为简洁摘要：
 
 {personality}
 
@@ -288,19 +291,19 @@ class AISummarizer(ConfigObserver):
 要求：
 1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
 2. 第二部分：首先翻译为中文，然后改写为简洁摘要
-3. 准确概括核心内容，简洁明了，不超过140字
+3. 准确概括核心内容，简洁明了
 4. 必须使用中文书写，不能使用全英文
 5. 必要的英文术语或专有名词可以保留，但整体必须是中文
 6. 只输出中文摘要，不要包含原文或翻译过程"""
         else:
-            return f"""请将以下新闻内容翻译为中文，并改写为简洁摘要（不超过140字）：
+            return f"""请将以下新闻内容翻译为中文，并改写为简洁摘要：
 
 {truncated_description}
 
 要求：
 1. 首先翻译为中文
 2. 然后改写为简洁摘要
-3. 准确概括核心内容，简洁明了，不超过140字
+3. 准确概括核心内容，简洁明了
 4. 必须使用中文书写，不能使用全英文
 5. 必要的英文术语或专有名词可以保留，但整体必须是中文
 6. 只输出中文摘要，不要包含原文或翻译过程"""

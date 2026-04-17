@@ -65,7 +65,7 @@ def test_generate_summary_success(mock_post, ai_summarizer):
     mock_post.return_value = mock_response
     
     # 测试英文描述（会触发AI摘要）
-    result = ai_summarizer.generate_summary('Test content', 'Test description')
+    result = ai_summarizer.generate_summary('Test content', 'Test description', 'Test Title')
     
     assert result is not None
     assert '测试摘要' in result
@@ -77,7 +77,7 @@ def test_generate_summary_timeout(mock_post, ai_summarizer):
     import requests
     mock_post.side_effect = requests.Timeout("请求超时")
     
-    result = ai_summarizer.generate_summary('测试内容', '测试描述')
+    result = ai_summarizer.generate_summary('测试内容', '测试描述', '测试标题')
     
     assert result is None
 
