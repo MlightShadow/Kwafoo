@@ -202,7 +202,47 @@ kwafoo/
 
 ## 🔧 配置说明
 
-### 通过文件修改配置
+### 配置文件优先级
+
+系统支持两种配置方式，按优先级从高到低：
+
+1. **`.env` 文件**（环境变量）- 最高优先级
+2. **`config.toml` 文件** - 默认配置
+
+### 通过 .env 文件修改配置（推荐）
+
+`.env` 文件用于覆盖 `config.toml` 中的配置，特别适合：
+- 敏感信息（如API密钥）
+- 本地开发环境配置
+- 快速测试不同配置
+
+**使用方法**：
+
+1. 复制示例文件（如果不存在）：
+   ```bash
+   cp .env.example .env
+   ```
+
+2. 编辑 `.env` 文件：
+   ```bash
+   # AI配置
+   AI_BASE_URL=http://192.168.101.104:1234
+   AI_MODEL=google/gemma-4-e4b
+   AI_TEMPERATURE=0.7
+
+   # 服务器配置
+   SERVER_HOST=0.0.0.0
+   SERVER_PORT=8000
+   ```
+
+3. 重启服务器使配置生效
+
+**注意事项**：
+- `.env` 文件已在 `.gitignore` 中，不会提交到版本控制
+- 确保 `python-dotenv` 包已安装（见故障排除）
+- 修改配置后需要重启服务器
+
+### 通过 config.toml 文件修改配置
 
 直接编辑 `config.toml` 文件：
 
@@ -383,6 +423,31 @@ kwafoo/
 ---
 
 ## 🔍 故障排除
+
+### 环境变量配置不生效
+**症状**：修改 `.env` 文件后配置没有生效，系统仍使用 `config.toml` 中的默认值
+
+**原因**：
+- `python-dotenv` 包未安装（虽然在 `requirements.txt` 中，但可能安装失败）
+- 系统会静默忽略这个错误，导致难以发现问题
+
+**解决方法**：
+```bash
+# 检查是否安装了 python-dotenv
+pip show python-dotenv
+
+# 如果没有安装，手动安装
+pip install python-dotenv
+
+# 或重新安装所有依赖
+pip install -r requirements.txt
+```
+
+**验证方法**：
+```bash
+# 检查配置是否正确加载
+python -c "from utils.helpers import config; print('AI_BASE_URL:', config.get('ai.base_url'))"
+```
 
 ### 服务器无法启动
 1. 检查端口8000和8001是否被占用

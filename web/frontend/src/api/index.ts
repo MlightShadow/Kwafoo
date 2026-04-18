@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import type { News, NewsStats } from '@/types/news'
 import type { ChatResponse } from '@/types/chat'
 import type { Config } from '@/types/config'
+import type { Report, GenerateReportParams, GetReportsParams } from '@/types/report'
 
 class APIClient {
   private client: AxiosInstance
@@ -139,6 +140,41 @@ class APIClient {
 
   async getAIQueueStats(): Promise<AxiosResponse<{ success: boolean; data: any }>> {
     return this.client.get('/ai/queue/stats')
+  }
+
+  // Report API
+  async generateReport(params: GenerateReportParams): Promise<AxiosResponse<{ 
+    success: boolean; 
+    message: string; 
+    report_id: number; 
+    report_title: string; 
+    news_count: number; 
+    generation_time: number 
+  }>> {
+    return this.client.post('/reports/generate', params)
+  }
+
+  async getReports(params: GetReportsParams): Promise<AxiosResponse<{ 
+    success: boolean; 
+    data: Report[]; 
+    count: number; 
+    type: string; 
+    limit: number; 
+    offset: number 
+  }>> {
+    return this.client.get(`/reports?type=${params.type}&limit=${params.limit || 10}&offset=${params.offset || 0}`)
+  }
+
+  async getReportDetail(id: number): Promise<AxiosResponse<{ success: boolean; data: Report }>> {
+    return this.client.get(`/reports/detail?id=${id}`)
+  }
+
+  async deleteReport(id: number): Promise<AxiosResponse<{ success: boolean; message: string }>> {
+    return this.client.post('/reports/delete', { id })
+  }
+
+  async getLatestReport(type: 'daily' | 'weekly' | 'monthly' = 'daily'): Promise<AxiosResponse<{ success: boolean; data: Report | null }>> {
+    return this.client.get(`/reports/latest?type=${type}`)
   }
 }
 

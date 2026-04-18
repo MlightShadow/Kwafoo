@@ -152,6 +152,29 @@ if HAS_PYDANTIC:
         """获取新闻详情参数"""
         id: int = Field(..., gt=0, description="新闻ID")
     
+    class GenerateReportParams(BaseModel):
+        """生成报告参数"""
+        report_type: str = Field(default='daily', description="报告类型")
+        hours: int = Field(default=24, ge=1, le=720, description="时间范围（小时）")
+    
+    class GetReportsParams(BaseModel):
+        """获取报告列表参数"""
+        type: str = Field(default='daily', description="报告类型")
+        limit: int = Field(default=10, ge=1, le=100, description="返回数量")
+        offset: int = Field(default=0, ge=0, description="偏移量")
+    
+    class GetReportDetailParams(BaseModel):
+        """获取报告详情参数"""
+        id: int = Field(..., gt=0, description="报告ID")
+    
+    class DeleteReportParams(BaseModel):
+        """删除报告参数"""
+        id: int = Field(..., gt=0, description="报告ID")
+    
+    class GetLatestReportParams(BaseModel):
+        """获取最新报告参数"""
+        type: str = Field(default='daily', description="报告类型")
+    
     class UpdateConfigParams(BaseModel):
         """更新配置参数"""
         config: Dict[str, Any] = Field(..., description="配置数据")
@@ -240,6 +263,36 @@ def validate_chat_params(func):
 def validate_get_chat_history_params(func):
     """获取对话历史参数验证装饰器"""
     return validate_params(GetChatHistoryParams)(func)
+
+
+def validate_update_config_params(func):
+    """更新配置参数验证装饰器"""
+    return validate_params(UpdateConfigParams)(func)
+
+
+def validate_generate_report_params(func):
+    """生成报告参数验证装饰器"""
+    return validate_params(GenerateReportParams)(func)
+
+
+def validate_get_reports_params(func):
+    """获取报告列表参数验证装饰器"""
+    return validate_params(GetReportsParams)(func)
+
+
+def validate_get_report_detail_params(func):
+    """获取报告详情参数验证装饰器"""
+    return validate_params(GetReportDetailParams)(func)
+
+
+def validate_delete_report_params(func):
+    """删除报告参数验证装饰器"""
+    return validate_params(DeleteReportParams)(func)
+
+
+def validate_get_latest_report_params(func):
+    """获取最新报告参数验证装饰器"""
+    return validate_params(GetLatestReportParams)(func)
 
 
 def validate_update_config_params(func):

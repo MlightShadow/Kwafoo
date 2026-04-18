@@ -207,6 +207,22 @@ class DatabaseManager:
             )
         ''')
         
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                content TEXT NOT NULL,
+                time_range_start DATETIME,
+                time_range_end DATETIME,
+                news_count INTEGER DEFAULT 0,
+                ai_model TEXT,
+                generation_time REAL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
         self._create_indexes()
         self._create_fts_table()
         
@@ -289,6 +305,16 @@ class DatabaseManager:
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_chat_messages_session 
             ON chat_messages(session_id, created_at)
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_reports_type 
+            ON reports(report_type, created_at DESC)
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_reports_created 
+            ON reports(created_at DESC)
         ''')
         
         logger.info("数据库索引创建完成")
@@ -1124,6 +1150,169 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"获取未读新闻失败: {e}")
             return []
+
+    def get_news_by_time_range(self, start_time: str, end_time: str) -> List[Dict]:
+        """按时间范围获取新闻
+        
+        Args:
+            start_time: 开始时间
+            end_time: 结束时间
+            
+        Returns:
+            新闻列表
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM news
+                WHERE is_visible = 1 AND is_deleted = 0
+                AND publish_time >= ? AND publish_time <= ?
+                ORDER BY publish_time DESC
+            ''', (start_time, end_time))
+            return [self._convert_row(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"按时间范围获取新闻失败: {e}")
+            return []
+
+    def create_report(self, report_data: Dict[str, Any]) -> int:
+        """创建报告
+        
+        Args:
+            report_data: 报告数据
+            
+        Returns:
+            报告ID
+        """
+        try:
+            cursor = self._connection.cursor()
+            
+            created_at = self._get_beijing_time()
+            
+            cursor.execute('''
+                INSERT INTO reports (
+                    report_type, title, content, time_range_start, time_range_end,
+                    news_count, ai_model, generation_time, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                report_data.get('report_type'),
+                report_data.get('title'),
+                report_data.get('content'),
+                report_data.get('time_range_start'),
+                report_data.get('time_range_end'),
+                report_data.get('news_count', 0),
+                report_data.get('ai_model'),
+                report_data.get('generation_time'),
+                created_at
+            ))
+            
+            report_id = cursor.lastrowid
+            self._connection.commit()
+            logger.info(f"报告创建成功: {report_data.get('title')} (ID: {report_id})")
+            return report_id
+            
+        except Exception as e:
+            logger.error(f"报告创建失败: {e}")
+            self._connection.rollback()
+            return -1
+
+    def get_reports_by_type(self, report_type: str, limit: int = None, offset: int = 0) -> List[Dict]:
+        """按类型获取报告列表
+        
+        Args:
+            report_type: 报告类型（daily/weekly/monthly）
+            limit: 限制数量
+            offset: 偏移量
+            
+        Returns:
+            报告列表
+        """
+        try:
+            cursor = self._connection.cursor()
+            
+            query = '''
+                SELECT * FROM reports
+                WHERE report_type = ?
+                ORDER BY created_at DESC
+            '''
+            params = [report_type]
+            
+            if limit is not None:
+                query += ' LIMIT ? OFFSET ?'
+                params.extend([limit, offset])
+            
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"获取报告列表失败: {e}")
+            return []
+
+    def get_report_by_id(self, report_id: int) -> Optional[Dict]:
+        """获取报告详情
+        
+        Args:
+            report_id: 报告ID
+            
+        Returns:
+            报告详情
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM reports WHERE id = ?
+            ''', (report_id,))
+            
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"获取报告详情失败: {e}")
+            return None
+
+    def delete_report(self, report_id: int) -> bool:
+        """删除报告
+        
+        Args:
+            report_id: 报告ID
+            
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                DELETE FROM reports WHERE id = ?
+            ''', (report_id,))
+            
+            self._connection.commit()
+            logger.info(f"报告删除成功: ID={report_id}")
+            return True
+        except Exception as e:
+            logger.error(f"报告删除失败: {e}")
+            self._connection.rollback()
+            return False
+
+    def get_latest_report(self, report_type: str) -> Optional[Dict]:
+        """获取最新报告
+        
+        Args:
+            report_type: 报告类型
+            
+        Returns:
+            最新报告
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM reports
+                WHERE report_type = ?
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (report_type,))
+            
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        except Exception as e:
+            logger.error(f"获取最新报告失败: {e}")
+            return None
 
     def close(self):
         """关闭当前线程的数据库连接"""

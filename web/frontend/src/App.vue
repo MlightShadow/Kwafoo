@@ -16,6 +16,9 @@
           <router-link to="/monitor" class="nav-link" active-class="active">
             📊 监控
           </router-link>
+          <router-link to="/reports" class="nav-link" active-class="active">
+            📊 报告
+          </router-link>
           <router-link to="/admin" class="nav-link" active-class="active">
             ⚙️ 管理
           </router-link>

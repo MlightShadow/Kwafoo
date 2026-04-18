@@ -50,7 +50,9 @@ def main():
         
         logger.info("启动AI队列处理器...")
         # 在启动队列处理器之前，清理卡住的任务
-        db.reset_stuck_ai_tasks()
+        stuck_count = db.reset_stuck_ai_tasks()
+        if stuck_count > 0:
+            logger.info(f"已清理 {stuck_count} 个卡住的AI任务（服务器重启导致）")
         scheduler.start_queue_processor()
         
         logger.info("启动HTTP服务器...")

@@ -160,6 +160,21 @@ algorithm = "auto"
 mode = "summary"
 max_image_size = 5242880
 
+[report]
+# 报告配置
+enable_auto_generate = false
+auto_generate_types = ["daily"]
+daily_generate_time = "08:00"
+weekly_generate_day = "monday"
+weekly_generate_time = "09:00"
+monthly_generate_day = 1
+monthly_generate_time = "10:00"
+max_news_count = 20
+# AI配置
+report_ai_model = "nvidia/nemotron-3-nano-4b"
+report_ai_temperature = 0.7
+report_ai_timeout = 300
+
 [content_fetch]
 # 是否启用正文抓取
 enable_content_fetch = true

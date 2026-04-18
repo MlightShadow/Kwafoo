@@ -12,7 +12,7 @@ from utils.progress import progress_monitor
 from database import db
 from ai.processor import ai_news_processor
 from rag.engine import rag_engine
-from web.api import news_api, ai_api, chat_api, config_api, system_api
+from web.api import news_api, ai_api, chat_api, config_api, system_api, report_api
 
 
 _SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -269,6 +269,9 @@ class HTTPServerManager:
         router.register_get('/api/news/read', news_api.get_read_news)
         router.register_get('/api/news/unread', news_api.get_unread_news)
         router.register_get('/api/news/detail', news_api.get_news_detail)
+        router.register_get('/api/reports', report_api.get_reports)
+        router.register_get('/api/reports/detail', report_api.get_report_detail)
+        router.register_get('/api/reports/latest', report_api.get_latest_report)
         router.register_get('/api/chat', chat_api.chat)
         router.register_get('/api/progress', system_api.get_progress)
         router.register_get('/api/health', system_api.health_check)
@@ -289,6 +292,8 @@ class HTTPServerManager:
         router.register_post('/api/news/clear', news_api.clear_news)
         router.register_post('/api/news/mark-read', news_api.mark_as_read)
         router.register_post('/api/config', config_api.update_config)
+        router.register_post('/api/reports/generate', report_api.generate_report)
+        router.register_post('/api/reports/delete', report_api.delete_report)
 
     def stop(self):
         if self._server:

@@ -24,8 +24,11 @@ except ImportError:
 try:
     from dotenv import load_dotenv
     load_dotenv()
+    logger.info("环境变量文件 .env 加载成功")
 except ImportError:
-    pass
+    logger.warning("python-dotenv 未安装，.env 文件将被忽略")
+    logger.warning("请运行: pip install python-dotenv")
+    logger.warning("或执行: pip install -r requirements.txt")
 
 
 class ConfigObserver(ABC):
@@ -146,6 +149,32 @@ class Config:
             'NETWORK_ENABLE_PROXY': ('network', 'enable_proxy'),
             'NETWORK_PROXY_URL': ('network', 'proxy_url'),
             'IMAGE_ENABLE_FETCH': ('image', 'enable_fetch'),
+            'REPORT_ENABLE_AUTO_GENERATE': ('report', 'enable_auto_generate'),
+            'REPORT_AUTO_GENERATE_TYPES': ('report', 'auto_generate_types'),
+            'REPORT_DAILY_GENERATE_TIME': ('report', 'daily_generate_time'),
+            'REPORT_WEEKLY_GENERATE_DAY': ('report', 'weekly_generate_day'),
+            'REPORT_WEEKLY_GENERATE_TIME': ('report', 'weekly_generate_time'),
+            'REPORT_MONTHLY_GENERATE_DAY': ('report', 'monthly_generate_day'),
+            'REPORT_MONTHLY_GENERATE_TIME': ('report', 'monthly_generate_time'),
+            'REPORT_MAX_NEWS_COUNT': ('report', 'max_news_count'),
+            'REPORT_AI_MODEL': ('report', 'report_ai_model'),
+            'REPORT_AI_TEMPERATURE': ('report', 'report_ai_temperature'),
+            'REPORT_AI_TIMEOUT': ('report', 'report_ai_timeout'),
+            'CONTENT_FETCH_ENABLE': ('content_fetch', 'enable_content_fetch'),
+            'CONTENT_FETCH_ALGORITHM': ('content_fetch', 'algorithm'),
+            'CONTENT_FETCH_MIN_CONTENT_LENGTH': ('content_fetch', 'min_content_length'),
+            'CONTENT_FETCH_MAX_CONTENT_LENGTH': ('content_fetch', 'max_content_length'),
+            'CONTENT_FETCH_TIMEOUT': ('content_fetch', 'timeout'),
+            'CONTENT_FETCH_USE_PROXY': ('content_fetch', 'use_proxy'),
+            'CONTENT_FETCH_ENABLE_CACHE': ('content_fetch', 'enable_cache'),
+            'IMAGE_DISPLAY_POSITION': ('image.display', 'position'),
+            'IMAGE_DISPLAY_SHOW_THUMBNAIL': ('image.display', 'show_thumbnail'),
+            'COMPRESSION_ENABLE_COMPRESSION': ('compression', 'enable_compression'),
+            'COMPRESSION_TARGET_TOKENS': ('compression', 'target_tokens'),
+            'COMPRESSION_COMPRESSION_LEVEL': ('compression', 'compression_level'),
+            'COMPRESSION_ALGORITHM': ('compression', 'algorithm'),
+            'COMPRESSION_MODE': ('compression', 'mode'),
+            'COMPRESSION_MAX_IMAGE_SIZE': ('compression', 'max_image_size'),
         }
         
         for env_key, (section, key) in env_mappings.items():
@@ -159,18 +188,45 @@ class Config:
                             config_section[part] = {}
                         config_section = config_section[part]
                     
-                    if key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch', 'enable_summary_comment', 'enable_classifier_reasoning', 'enable_summarizer_reasoning']:
+                    if key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch', 'enable_summary_comment', 'enable_classifier_reasoning', 'enable_summarizer_reasoning', 'enable_auto_generate', 'enable_content_fetch', 'use_proxy', 'enable_cache', 'show_thumbnail', 'enable_compression']:
                         config_section[key] = value.lower() in ('true', '1', 'yes')
+                    elif key == 'auto_generate_types':
+                        try:
+                            import json
+                            config_section[key] = json.loads(value)
+                        except (json.JSONDecodeError, ValueError):
+                            config_section[key] = value.split(',')
+                    elif key in ['max_tokens', 'fetch_interval', 'ai_process_interval', 'port', 'top_k', 'max_size', 'backup_count', 'width', 'height', 'max_image_size', 'max_workers', 'batch_size', 'max_news_count', 'report_ai_timeout', 'min_content_length', 'max_content_length', 'timeout', 'target_tokens', 'max_image_size']:
+                        try:
+                            config_section[key] = int(value)
+                        except ValueError:
+                            pass
+                    elif key in ['report_ai_temperature', 'temperature']:
+                        try:
+                            config_section[key] = float(value)
+                        except ValueError:
+                            pass
                     else:
                         config_section[key] = value
                 elif section in config:
-                    if key in ['max_tokens', 'fetch_interval', 'ai_process_interval', 'port', 'top_k', 'max_size', 'backup_count', 'width', 'height', 'max_image_size', 'max_workers', 'batch_size']:
+                    if key in ['max_tokens', 'fetch_interval', 'ai_process_interval', 'port', 'top_k', 'max_size', 'backup_count', 'width', 'height', 'max_image_size', 'max_workers', 'batch_size', 'max_news_count', 'report_ai_timeout', 'min_content_length', 'max_content_length', 'timeout', 'target_tokens', 'max_image_size']:
                         try:
                             config[section][key] = int(value)
                         except ValueError:
                             pass
-                    elif key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch', 'enable_summary_comment', 'enable_classifier_reasoning', 'enable_summarizer_reasoning']:
+                    elif key in ['enable_summary', 'auto_fetch', 'auto_ai_process', 'auto_ai_after_fetch', 'enable_websocket', 'use_fts', 'enable_proxy', 'enable_fetch', 'enable_summary_comment', 'enable_classifier_reasoning', 'enable_summarizer_reasoning', 'enable_auto_generate', 'enable_content_fetch', 'use_proxy', 'enable_cache', 'show_thumbnail', 'enable_compression']:
                         config[section][key] = value.lower() in ('true', '1', 'yes')
+                    elif key == 'auto_generate_types':
+                        try:
+                            import json
+                            config[section][key] = json.loads(value)
+                        except (json.JSONDecodeError, ValueError):
+                            config[section][key] = value.split(',')
+                    elif key in ['report_ai_temperature', 'temperature']:
+                        try:
+                            config[section][key] = float(value)
+                        except ValueError:
+                            pass
                     else:
                         config[section][key] = value
         

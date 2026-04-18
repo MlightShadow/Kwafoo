@@ -2,6 +2,7 @@ import requests
 from typing import Optional, Dict, Any
 from utils.logger import logger
 from utils.helpers import config, ConfigObserver
+from ai.model_adapter import ModelAdapterFactory
 
 
 def contains_chinese(text: str) -> bool:
@@ -98,6 +99,9 @@ class AISummarizer(ConfigObserver):
         self.comment_stance: Dict[str, str] = config.get('ai.comment_stance', {})
         self.enable_reasoning: bool = config.get('ai.enable_summarizer_reasoning', False)
         
+        # 创建模型适配器
+        self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
+        
         # 注册为配置观察者
         config.add_observer(self)
 
@@ -117,9 +121,12 @@ class AISummarizer(ConfigObserver):
         self.description_threshold = config.get('ai_summary_threshold', 140)
         self.max_input_length = ai_config.get('max_input_length', 2000)
         self.timeout = ai_config.get('timeout', 120)
-        self.enable_summary_comment = ai_config.get('enable_summary_comment', False)
-        self.comment_stance = ai_config.get('comment_stance', {})
-        self.enable_reasoning = ai_config.get('enable_summarizer_reasoning', False)
+        self.enable_summary_comment = config.get('ai.enable_summary_comment', False)
+        self.comment_stance = config.get('ai.comment_stance', {})
+        self.enable_reasoning = config.get('ai.enable_summarizer_reasoning', False)
+        
+        # 如果模型改变，重新创建适配器
+        self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
 
     def generate_summary(self, content: str, description: Optional[str] = None, title: Optional[str] = None) -> Optional[str]:
         try:
@@ -208,20 +215,16 @@ class AISummarizer(ConfigObserver):
             
             data = response.json()
             
-            if 'choices' not in data or len(data['choices']) == 0:
-                logger.error("AI摘要响应格式错误: 缺少choices字段")
+            # 使用模型适配器提取摘要结果
+            summary = self.model_adapter.extract_summary(data)
+            
+            if summary:
+                logger.info(f"AI摘要生成成功，长度: {len(summary)}")
+                logger.debug(f"AI摘要内容: {summary[:200]}")
+                return summary
+            else:
+                logger.warning("AI摘要返回空结果")
                 return None
-            
-            message = data['choices'][0]['message']
-            logger.debug(f"AI摘要message keys: {list(message.keys())}")
-            if 'content' in message:
-                logger.debug(f"AI摘要content长度: {len(message['content'])}")
-            if 'reasoning_content' in message:
-                logger.debug(f"AI摘要reasoning_content长度: {len(message['reasoning_content'])}")
-            
-            summary = message['content'].strip()
-            logger.info(f"AI摘要生成成功，长度: {len(summary)}")
-            return summary
             
         except Exception as e:
             logger.error(f"AI摘要生成失败: {e}")
@@ -336,6 +339,7 @@ class AISummarizer(ConfigObserver):
             parts.append(f"宗教信仰：{religion}")
         
         return "，".join(parts)
+
 
 
 ai_summarizer = AISummarizer()

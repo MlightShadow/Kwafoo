@@ -2,6 +2,7 @@ import requests
 from typing import List, Optional, Dict, Any
 from utils.logger import logger
 from utils.helpers import config, get_category_names, get_default_category, ConfigObserver
+from ai.model_adapter import ModelAdapterFactory
 
 
 class AIClassifier(ConfigObserver):
@@ -18,6 +19,9 @@ class AIClassifier(ConfigObserver):
         
         self.max_input_length: int = config.get('ai.max_input_length', 800)
         self.timeout: int = config.get('ai.timeout', 120)
+        
+        # 创建模型适配器
+        self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
         
         # 注册为配置观察者
         config.add_observer(self)
@@ -43,6 +47,9 @@ class AIClassifier(ConfigObserver):
         self.categories = get_category_names()
         self.categories_config = config.get('categories', [])
         self.default_category = get_default_category()
+        
+        # 如果模型改变，重新创建适配器
+        self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
 
     def classify(self, title: str, description: str, 
                  source_category: str = None) -> Optional[List[str]]:
@@ -108,62 +115,12 @@ class AIClassifier(ConfigObserver):
             data = response.json()
             logger.debug(f"AI分类响应数据: {data}")
             
-            # 记录完整的响应以便诊断
-            if 'choices' in data and len(data['choices']) > 0:
-                message = data['choices'][0]['message']
-                logger.debug(f"AI分类message keys: {list(message.keys())}")
-                if 'content' in message:
-                    logger.debug(f"AI分类content长度: {len(message['content'])}")
-                if 'reasoning_content' in message:
-                    logger.debug(f"AI分类reasoning_content长度: {len(message['reasoning_content'])}")
-            
-            if 'choices' not in data or len(data['choices']) == 0:
-                logger.error("AI分类响应格式错误: 缺少choices字段")
-                return None
-            
-            result = data['choices'][0]['message']['content'].strip()
-            
-            logger.debug(f"AI分类原始返回内容: '{result}'")
-            logger.debug(f"AI分类返回长度: {len(result)}")
-            
-            # 如果content为空，尝试从reasoning_content中提取
-            if not result:
-                reasoning_content = data['choices'][0]['message'].get('reasoning_content', '')
-                logger.warning(f"AI分类content为空，尝试从reasoning_content提取")
-                logger.debug(f"reasoning_content长度: {len(reasoning_content)}")
-                
-                if reasoning_content:
-                    # 从推理内容中提取分类结果
-                    # 查找AI明确推荐的分类（通常在推理的最后部分）
-                    lines = reasoning_content.split('\n')
-                    
-                    # 从最后20行中查找，放宽查找范围
-                    for line in reversed(lines[-20:]):
-                        line = line.strip()
-                        if not line:
-                            continue
-                        
-                        # 检查是否包含有效的分类
-                        potential_cats = []
-                        for cat in self.categories:
-                            if cat in line:
-                                potential_cats.append(cat)
-                        
-                        if self.default_category in line:
-                            potential_cats.append(self.default_category)
-                        
-                        # 如果找到分类，且这一行不太长（可能是最终结果）
-                        # 放宽条件：只要有分类且行不太长就认为是结果
-                        if potential_cats and len(line) < 150:
-                            result = ','.join(sorted(potential_cats))
-                            logger.debug(f"从reasoning_content提取到分类: {result}")
-                            logger.debug(f"提取的行: {line}")
-                            break
-            
-            logger.debug(f"AI分类处理后结果: '{result}'")
-            logger.debug(f"AI分类结果长度: {len(result)}")
-            
-            categories = self._parse_result(result)
+            # 使用模型适配器提取分类结果
+            categories = self.model_adapter.extract_classification(
+                data, 
+                self.categories, 
+                self.default_category
+            )
             
             if categories:
                 logger.info(f"AI分类完成: {categories}")
@@ -237,53 +194,6 @@ class AIClassifier(ConfigObserver):
 - 科技+财经：返回"科技,财经"或"财经,科技"
 """
 
-    def _parse_result(self, result: str) -> Optional[List[str]]:
-        try:
-            result = result.strip()
-            
-            if not result:
-                return None
-            
-            logger.debug(f"AI分类原始返回: {result}")
-            
-            categories = [cat.strip() for cat in result.split(',')]
-            logger.debug(f"AI分类解析后: {categories}")
-            logger.debug(f"可用分类: {self.categories}")
-            
-            valid_categories = []
-            
-            for cat in categories:
-                # 排除"未分类"，强制选择一个实际分类
-                if cat == '未分类':
-                    logger.warning(f"AI返回了'未分类'，已忽略")
-                    continue
-                    
-                if cat in self.categories:
-                    valid_categories.append(cat)
-                    logger.debug(f"分类 '{cat}' 有效")
-                elif cat == self.default_category and cat != '未分类':
-                    valid_categories.append(cat)
-                    logger.debug(f"分类 '{cat}' 是默认分类")
-                else:
-                    logger.debug(f"分类 '{cat}' 无效，跳过")
-            
-            # 如果没有有效分类，返回None，让调用者处理
-            if not valid_categories:
-                logger.warning(f"AI分类没有返回有效分类，原始结果: {result}")
-                return None
-            
-            # 限制最多返回2个分类
-            if len(valid_categories) > 2:
-                valid_categories = valid_categories[:2]
-                logger.debug(f"分类数量超过2个，已限制为: {valid_categories}")
-            
-            logger.debug(f"AI分类最终结果: {valid_categories}")
-            
-            return valid_categories
-            
-        except Exception as e:
-            logger.error(f"分类结果解析失败: {e}")
-            return None
 
 
 ai_classifier = AIClassifier()
