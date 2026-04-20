@@ -17,6 +17,7 @@ python-dotenv>=1.0.0
 
 # AI框架
 openai>=1.0.0
+litellm>=1.0.0
 
 # HTTP服务器
 # 使用Python内置http.server，无需额外安装

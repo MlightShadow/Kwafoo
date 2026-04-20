@@ -1,7 +1,7 @@
 """
 AI评分器 - 对新闻进行多维度评分
 """
-import requests
+from litellm import completion
 from typing import Dict, Any, List, Optional
 from utils.logger import logger
 from utils.helpers import config, ConfigObserver
@@ -173,10 +173,10 @@ class AIScorer(ConfigObserver):
             # 构建提示词
             prompt = self._build_importance_prompt(title, summary)
             
-            # 调用AI
-            payload = {
-                "model": self.model,
-                "messages": [
+            # 使用 LiteLLM 调用 AI
+            response = completion(
+                model=f'openai/{self.model}',
+                messages=[
                     {
                         "role": "system",
                         "content": "你是一个专业的新闻分析师，擅长判断新闻的重要性。"
@@ -186,27 +186,46 @@ class AIScorer(ConfigObserver):
                         "content": prompt
                     }
                 ],
-                "max_tokens": 10,
-                "temperature": 0.3
-            }
-            
-            headers = {}
-            if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-            
-            response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
-                json=payload,
-                headers=headers,
+                api_base=f"{self.base_url}/v1",
+                api_key=self.api_key if self.api_key else "not-needed",
+                max_tokens=512,
+                temperature=0.3,
                 timeout=self.timeout
+                # 不添加 extra_body，关闭 thinking 模式
             )
             
-            if response.status_code != 200:
-                logger.error(f"AI重要性评分失败: status_code={response.status_code}")
+            # 统一获取返回内容
+            if not response or not response.choices or len(response.choices) == 0:
+                logger.error(f"AI响应无效: response={response}")
                 return 50.0
             
-            result = response.json()
-            content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+            message = response.choices[0].message
+            if not message:
+                logger.error(f"AI响应消息为空: message={message}")
+                return 50.0
+            
+            content = message.content
+            # 如果 content 为空，尝试从 reasoning_content 中提取
+            if not content or not content.strip():
+                reasoning_content = getattr(message, 'reasoning_content', None) or message.provider_specific_fields.get('reasoning_content', None)
+                if reasoning_content and reasoning_content.strip():
+                    logger.debug(f"AI返回的content为空，尝试从reasoning_content中提取: {reasoning_content[:200]}...")
+                    # 从 reasoning_content 中提取数字
+                    import re
+                    numbers = re.findall(r'\d+\.?\d*', reasoning_content)
+                    if numbers:
+                        content = numbers[-1]  # 使用最后一个数字
+                        logger.debug(f"从reasoning_content中提取的数字: {content}")
+                    else:
+                        logger.error(f"无法从reasoning_content中提取数字: {reasoning_content}")
+                        return 50.0
+                else:
+                    logger.error(f"AI返回内容为空且reasoning_content也为空: content={content}, message={message}")
+                    return 50.0
+            
+            if not content or not content.strip():
+                logger.error(f"AI返回内容为空: content={content}, message={message}")
+                return 50.0
             
             # 解析评分
             try:
@@ -261,10 +280,10 @@ class AIScorer(ConfigObserver):
             # 构建提示词
             prompt = self._build_ai_feeling_prompt(title, summary)
             
-            # 调用AI
-            payload = {
-                "model": self.model,
-                "messages": [
+            # 使用 LiteLLM 调用 AI
+            response = completion(
+                model=f'openai/{self.model}',
+                messages=[
                     {
                         "role": "system",
                         "content": "你是一个专业的新闻分析师，擅长判断新闻的阅读价值。"
@@ -274,27 +293,46 @@ class AIScorer(ConfigObserver):
                         "content": prompt
                     }
                 ],
-                "max_tokens": 10,
-                "temperature": 0.3
-            }
-            
-            headers = {}
-            if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-            
-            response = requests.post(
-                f"{self.base_url}/v1/chat/completions",
-                json=payload,
-                headers=headers,
+                api_base=f"{self.base_url}/v1",
+                api_key=self.api_key if self.api_key else "not-needed",
+                max_tokens=512,
+                temperature=0.3,
                 timeout=self.timeout
+                # 不添加 extra_body，关闭 thinking 模式
             )
             
-            if response.status_code != 200:
-                logger.error(f"AI感官分评分失败: status_code={response.status_code}")
-                return 0.0
+            # 统一获取返回内容
+            if not response or not response.choices or len(response.choices) == 0:
+                logger.error(f"AI响应无效: response={response}")
+                return 50.0
             
-            result = response.json()
-            content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+            message = response.choices[0].message
+            if not message:
+                logger.error(f"AI响应消息为空: message={message}")
+                return 50.0
+            
+            content = message.content
+            # 如果 content 为空，尝试从 reasoning_content 中提取
+            if not content or not content.strip():
+                reasoning_content = getattr(message, 'reasoning_content', None) or message.provider_specific_fields.get('reasoning_content', None)
+                if reasoning_content and reasoning_content.strip():
+                    logger.debug(f"AI返回的content为空，尝试从reasoning_content中提取: {reasoning_content[:200]}...")
+                    # 从 reasoning_content 中提取数字
+                    import re
+                    numbers = re.findall(r'-?\d+\.?\d*', reasoning_content)
+                    if numbers:
+                        content = numbers[-1]  # 使用最后一个数字
+                        logger.debug(f"从reasoning_content中提取的数字: {content}")
+                    else:
+                        logger.error(f"无法从reasoning_content中提取数字: {reasoning_content}")
+                        return 50.0
+                else:
+                    logger.error(f"AI返回内容为空且reasoning_content也为空: content={content}, message={message}")
+                    return 50.0
+            
+            if not content or not content.strip():
+                logger.error(f"AI返回内容为空: content={content}, message={message}")
+                return 50.0
             
             # 解析评分
             try:

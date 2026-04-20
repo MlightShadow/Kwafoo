@@ -3,7 +3,7 @@
 """
 import json
 import time
-import requests
+from litellm import completion
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta, timezone
 from utils.logger import logger
@@ -141,10 +141,10 @@ class ReportGenerator:
             # 构建提示词
             prompt = self._build_report_prompt(news_data, report_type)
             
-            # 调用AI
-            payload = {
-                "model": self.model,
-                "messages": [
+            # 使用 LiteLLM 调用 AI
+            response = completion(
+                model=f'openai/{self.model}',
+                messages=[
                     {
                         "role": "system",
                         "content": "你是一个专业的新闻分析师，擅长对新闻进行分类和梳理。"
@@ -154,50 +154,17 @@ class ReportGenerator:
                         "content": prompt
                     }
                 ],
-                "max_tokens": self.max_tokens,
-                "temperature": self.temperature
-            }
+                api_base=f"{self.base_url}/v1",
+                api_key=self.api_key if self.api_key else "not-needed",
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                timeout=self.timeout
+            )
             
-            logger.debug(f"AI报告生成请求: {self.base_url}/v1/chat/completions")
-            logger.debug(f"AI报告生成超时设置: {self.timeout}秒")
+            logger.debug(f"AI报告生成响应: {response}")
             
-            headers = {}
-            if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
-            
-            try:
-                response = requests.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=self.timeout
-                )
-            except requests.Timeout:
-                logger.error(f"AI报告生成请求超时（{self.timeout}秒）")
-                return None
-            except requests.ConnectionError as e:
-                logger.error(f"AI报告生成连接失败: {e}")
-                return None
-            except requests.RequestException as e:
-                logger.error(f"AI报告生成请求异常: {e}")
-                return None
-            
-            logger.debug(f"AI报告生成响应状态: {response.status_code}")
-            
-            if response.status_code != 200:
-                logger.error(f"AI报告生成API调用失败: {response.status_code} - {response.text}")
-                return None
-            
-            data = response.json()
-            logger.debug(f"AI报告生成响应数据: {data}")
-            
-            # 检查响应数据格式
-            if 'choices' not in data or len(data['choices']) == 0:
-                logger.error("AI报告生成响应格式错误: 缺少choices字段")
-                return None
-            
-            message = data['choices'][0].get('message', {})
-            result_text = message.get('content', '').strip()
+            # 统一获取返回内容
+            result_text = response.choices[0].message.content.strip()
             
             if not result_text:
                 logger.error("AI报告生成响应内容为空")

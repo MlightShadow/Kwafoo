@@ -1,8 +1,7 @@
-import requests
+from litellm import completion
 from typing import Optional, Dict, Any
 from utils.logger import logger
 from utils.helpers import config, ConfigObserver
-from ai.model_adapter import ModelAdapterFactory
 
 
 def contains_chinese(text: str) -> bool:
@@ -100,9 +99,6 @@ class AISummarizer(ConfigObserver):
         self.comment_stance: Dict[str, str] = config.get('ai.comment_stance', {})
         self.enable_reasoning: bool = config.get('ai.enable_summarizer_reasoning', False)
         
-        # 创建模型适配器
-        self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
-        
         # 注册为配置观察者
         config.add_observer(self)
 
@@ -126,9 +122,6 @@ class AISummarizer(ConfigObserver):
         self.enable_summary_comment = config.get('ai.enable_summary_comment', False)
         self.comment_stance = config.get('ai.comment_stance', {})
         self.enable_reasoning = config.get('ai.enable_summarizer_reasoning', False)
-        
-        # 如果模型改变，重新创建适配器
-        self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
 
     def generate_summary(self, content: str, description: Optional[str] = None, title: Optional[str] = None) -> Optional[Dict[str, str]]:
         """
@@ -179,8 +172,9 @@ class AISummarizer(ConfigObserver):
             
             logger.debug("开始生成AI摘要")
             
-            payload = {
-                "model": self.model,
+            # 根据配置决定是否启用 thinking 模式
+            completion_kwargs = {
+                "model": f'openai/{self.model}',
                 "messages": [
                     {
                         "role": "system",
@@ -191,50 +185,69 @@ class AISummarizer(ConfigObserver):
                         "content": prompt
                     }
                 ],
+                "api_base": f"{self.base_url}/v1",
+                "api_key": self.api_key if self.api_key else "not-needed",
                 "max_tokens": self.max_tokens,
-                "temperature": self.temperature
+                "temperature": self.temperature,
+                "timeout": self.timeout
             }
             
+            # 只有在配置启用时才添加 reasoning_effort 参数
             if self.enable_reasoning:
-                payload["reasoning_effort"] = "medium"
-                logger.debug(f"AI摘要已启用深度思考功能")
+                completion_kwargs["extra_body"] = {"reasoning_effort": "low"}
+                logger.debug("启用 thinking 模式")
             else:
-                logger.debug(f"AI摘要未启用深度思考功能")
+                logger.debug("关闭 thinking 模式")
             
-            logger.debug(f"AI摘要请求: {self.base_url}/v1/chat/completions")
-            logger.debug(f"AI摘要超时设置: {self.timeout}秒")
+            # 使用 LiteLLM 调用 AI
+            response = completion(**completion_kwargs)
             
-            headers = {}
-            if self.api_key:
-                headers['Authorization'] = f'Bearer {self.api_key}'
+            logger.debug(f"AI摘要响应: {response}")
             
-            try:
-                response = requests.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload,
-                    headers=headers,
-                    timeout=self.timeout
-                )
-            except requests.Timeout:
-                logger.error(f"AI摘要请求超时（{self.timeout}秒）")
-                return None
-            except requests.ConnectionError as e:
-                logger.error(f"AI摘要连接失败: {e}")
-                return None
-            except requests.RequestException as e:
-                logger.error(f"AI摘要请求异常: {e}")
+            # 统一获取返回内容
+            if not response or not response.choices or len(response.choices) == 0:
+                logger.error(f"AI响应无效: response={response}")
                 return None
             
-            logger.debug(f"AI摘要响应状态: {response.status_code}")
-            
-            if response.status_code != 200:
-                logger.error(f"AI摘要API调用失败: {response.status_code} - {response.text}")
+            message = response.choices[0].message
+            if not message:
+                logger.error(f"AI响应消息为空: message={message}")
                 return None
             
-            data = response.json()
+            content_text = message.content
+            # 如果 content 为空，尝试从 reasoning_content 中提取
+            if not content_text or not content_text.strip():
+                reasoning_content = getattr(message, 'reasoning_content', None) or message.provider_specific_fields.get('reasoning_content', None)
+                if reasoning_content and reasoning_content.strip():
+                    logger.debug(f"AI返回的content为空，尝试从reasoning_content中提取: {reasoning_content[:200]}...")
+                    # 从 reasoning_content 中提取最后一部分作为最终答案
+                    # 通常最终答案在推理过程的末尾
+                    lines = reasoning_content.split('\n')
+                    # 查找包含评价或摘要的行
+                    found_marker = False
+                    extracted_content = []
+                    for line in reversed(lines):
+                        # 查找可能的评价标记（包含emoji表情）
+                        if any(emoji in line for emoji in ['😊', '😄', '👍', '👎', '😮', '😂', '🤔', '💡', '🎯', '🔥', '⭐']):
+                            found_marker = True
+                        # 查找摘要标记
+                        if '摘要' in line or '总结' in line or '概括' in line:
+                            found_marker = True
+                        if found_marker:
+                            extracted_content.insert(0, line)
+                    
+                    if extracted_content:
+                        content_text = '\n'.join(extracted_content)
+                        logger.debug(f"从reasoning_content中提取的内容: {content_text[:200]}...")
+                    else:
+                        # 如果没有找到标记，使用最后几行
+                        content_text = '\n'.join(lines[-10:]) if len(lines) > 10 else reasoning_content
+                        logger.debug(f"使用reasoning_content的最后部分: {content_text[:200]}...")
+                else:
+                    logger.error(f"AI返回内容为空且reasoning_content也为空: content={content_text}, message={message}")
+                    return None
             
-            # 使用模型适配器提取摘要结果
-            content_text = self.model_adapter.extract_summary(data)
+            logger.debug(f"AI摘要返回内容: {content_text[:200]}...")
             
             if content_text:
                 # 解析评价和摘要
