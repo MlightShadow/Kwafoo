@@ -263,6 +263,41 @@ class DatabaseManager:
                 cursor.execute("ALTER TABLE news ADD COLUMN compressed_content TEXT")
                 logger.info("数据库迁移：添加 compressed_content 字段")
             
+            # 添加 ai_score 字段
+            if 'ai_score' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score FLOAT")
+                logger.info("数据库迁移：添加 ai_score 字段")
+            
+            # 添加 ai_score_topic_relevance 字段（主题相关性）
+            if 'ai_score_topic_relevance' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_topic_relevance FLOAT")
+                logger.info("数据库迁移：添加 ai_score_topic_relevance 字段")
+            
+            # 添加 ai_score_importance 字段（重要性）
+            if 'ai_score_importance' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_importance FLOAT")
+                logger.info("数据库迁移：添加 ai_score_importance 字段")
+            
+            # 添加 ai_score_freshness 字段（新鲜度）
+            if 'ai_score_freshness' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_freshness FLOAT")
+                logger.info("数据库迁移：添加 ai_score_freshness 字段")
+            
+            # 添加 ai_score_source 字段（来源可信度）
+            if 'ai_score_source' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_source FLOAT")
+                logger.info("数据库迁移：添加 ai_score_source 字段")
+            
+            # 添加 ai_comment 字段（AI评价）
+            if 'ai_comment' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_comment TEXT")
+                logger.info("数据库迁移：添加 ai_comment 字段")
+            
+            # 添加 keywords 字段（AI提取的关键字）
+            if 'keywords' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN keywords TEXT")
+                logger.info("数据库迁移：添加 keywords 字段")
+            
             self._connection.commit()
             
         except Exception as e:
@@ -723,6 +758,132 @@ class DatabaseManager:
                 logger.error(f"数据库回滚失败: {rollback_error}")
             return False
 
+    def update_news_score(self, news_id: int, ai_score: float, 
+                        topic_relevance: float = None,
+                        importance: float = None,
+                        ai_feeling: float = None,
+                        source_score: float = None) -> bool:
+        """更新新闻AI评分
+        
+        Args:
+            news_id: 新闻ID
+            ai_score: AI评分（总分）
+            topic_relevance: 主题相关性评分
+            importance: 重要性评分
+            ai_feeling: AI感官分（推荐/不推荐）
+            source_score: 来源可信度评分
+            
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            
+            # 构建更新SQL
+            update_fields = ["ai_score = ?"]
+            params = [ai_score]
+            
+            if topic_relevance is not None:
+                update_fields.append("ai_score_topic_relevance = ?")
+                params.append(topic_relevance)
+            
+            if importance is not None:
+                update_fields.append("ai_score_importance = ?")
+                params.append(importance)
+            
+            if ai_feeling is not None:
+                update_fields.append("ai_score_freshness = ?")
+                params.append(ai_feeling)
+            
+            if source_score is not None:
+                update_fields.append("ai_score_source = ?")
+                params.append(source_score)
+            
+            params.append(news_id)
+            
+            cursor.execute(f'''
+                UPDATE news 
+                SET {', '.join(update_fields)}
+                WHERE id = ?
+            ''', params)
+            
+            self._connection.commit()
+            logger.info(f"新闻评分更新成功: ID={news_id}, score={ai_score}, "
+                       f"主题相关性={topic_relevance}, 重要性={importance}, "
+                       f"AI感官分={ai_feeling}, 来源={source_score}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"新闻评分更新失败: {e}")
+            try:
+                self._connection.rollback()
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
+            return False
+
+    def update_news_comment(self, news_id: int, comment: str) -> bool:
+        """更新新闻AI评价
+        
+        Args:
+            news_id: 新闻ID
+            comment: AI评价
+            
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                UPDATE news 
+                SET ai_comment = ?
+                WHERE id = ?
+            ''', (comment, news_id))
+            
+            self._connection.commit()
+            logger.info(f"新闻AI评价更新成功: ID={news_id}, comment={comment[:50]}...")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"新闻AI评价更新失败: {e}")
+            try:
+                self._connection.rollback()
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
+            return False
+
+    def update_news_keywords(self, news_id: int, keywords: str) -> bool:
+        """更新新闻AI提取的关键字
+        
+        Args:
+            news_id: 新闻ID
+            keywords: 关键字（逗号分隔）
+            
+        Returns:
+            是否成功
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                UPDATE news 
+                SET keywords = ?
+                WHERE id = ?
+            ''', (keywords, news_id))
+            
+            self._connection.commit()
+            logger.info(f"新闻关键字更新成功: ID={news_id}, keywords={keywords[:50]}...")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"新闻关键字更新失败: {e}")
+            try:
+                self._connection.rollback()
+            except Exception as rollback_error:
+                logger.error(f"数据库回滚失败: {rollback_error}")
+            return False
+
     def update_news_content(self, news_id: int, content: str = None,
                             compressed_content: str = None) -> bool:
         """
@@ -883,7 +1044,14 @@ class DatabaseManager:
                 UPDATE news 
                 SET ai_processed = 0,
                     ai_summary = NULL,
-                    category = NULL
+                    category = NULL,
+                    keywords = NULL,
+                    ai_comment = NULL,
+                    ai_score = NULL,
+                    ai_score_topic_relevance = NULL,
+                    ai_score_importance = NULL,
+                    ai_score_freshness = NULL,
+                    ai_score_source = NULL
                 WHERE id = ?
             ''', (news_id,))
             self._connection.commit()
@@ -904,10 +1072,23 @@ class DatabaseManager:
             priority: 优先级 (0=普通, 1=高)
 
         Returns:
-            任务ID
+            任务ID，如果新闻已存在于队列中则返回-1
         """
         try:
             cursor = self._connection.cursor()
+            
+            # 检查新闻ID是否已经存在于AI待处理队列中
+            cursor.execute('''
+                SELECT id FROM ai_processing_queue
+                WHERE news_id = ? AND status IN ('pending', 'processing')
+            ''', (news_id,))
+            
+            existing_task = cursor.fetchone()
+            if existing_task:
+                logger.info(f"新闻已存在于AI队列中，跳过添加: news_id={news_id}")
+                return -1
+            
+            # 添加任务到队列
             cursor.execute('''
                 INSERT INTO ai_processing_queue (news_id, task_type, status, priority)
                 VALUES (?, ?, 'pending', ?)
@@ -1172,6 +1353,32 @@ class DatabaseManager:
             return [self._convert_row(dict(row)) for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"按时间范围获取新闻失败: {e}")
+            return []
+
+    def get_news_by_score(self, start_time: str, end_time: str, limit: int = 20) -> List[Dict]:
+        """按评分获取新闻（用于报告生成）
+        
+        Args:
+            start_time: 开始时间
+            end_time: 结束时间
+            limit: 限制数量
+            
+        Returns:
+            新闻列表（按ai_score降序排序）
+        """
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute('''
+                SELECT * FROM news
+                WHERE is_visible = 1 AND is_deleted = 0
+                AND publish_time >= ? AND publish_time <= ?
+                AND ai_score IS NOT NULL
+                ORDER BY ai_score DESC
+                LIMIT ?
+            ''', (start_time, end_time, limit))
+            return [self._convert_row(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(f"按评分获取新闻失败: {e}")
             return []
 
     def create_report(self, report_data: Dict[str, Any]) -> int:

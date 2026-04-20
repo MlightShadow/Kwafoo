@@ -179,15 +179,28 @@ class Scheduler(ConfigObserver):
             return 0
         
         inserted_count = 0
+        inserted_news_ids = []
         for news in news_list:
             try:
                 news_id = db.insert_news(news)
                 if news_id > 0:
                     inserted_count += 1
+                    inserted_news_ids.append(news_id)
             except Exception as e:
                 logger.error(f"[{task_id}] 保存新闻失败: {news.get('title', 'Unknown')} - {e}")
         
         logger.info(f"[{task_id}] {source_name} - 保存 {inserted_count} 条新闻到数据库")
+        
+        # 如果启用了自动AI处理，将新闻添加到AI处理队列
+        if inserted_news_ids and config.get('ai.auto_process', False):
+            try:
+                for news_id in inserted_news_ids:
+                    # 添加到AI队列（完整分析任务）
+                    db.add_to_ai_queue(news_id, 'all', priority=2)
+                logger.info(f"[{task_id}] 已将 {len(inserted_news_ids)} 条新闻添加到AI处理队列")
+            except Exception as e:
+                logger.error(f"[{task_id}] 添加新闻到AI处理队列失败: {e}")
+        
         return inserted_count
 
     def fetch_news(self):
@@ -364,7 +377,7 @@ class Scheduler(ConfigObserver):
         
         try:
             logger.info(f"[{task_id}] 正在获取未处理的新闻...")
-            result = ai_news_processor.process_all_unprocessed_manual(task_id=task_id)
+            result = ai_news_processor.process_all_unprocessed(task_id=task_id, manual=True)
             
             if result['status'] == 'completed':
                 progress_monitor.update_progress(task_id, 100, "AI处理完成")

@@ -39,6 +39,13 @@ export interface GenerateReportParams {
   hours: number
 }
 
+export interface GenerateReportResponse {
+  success: boolean
+  message: string
+  task_id: string
+  task_name: string
+}
+
 export interface GetReportsParams {
   type: 'daily' | 'weekly' | 'monthly'
   limit?: number

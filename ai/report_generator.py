@@ -3,9 +3,9 @@
 """
 import json
 import time
+import requests
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta, timezone
-from openai import OpenAI
 from utils.logger import logger
 from utils.helpers import config
 from database import db
@@ -20,13 +20,8 @@ class ReportGenerator:
         self.api_key = config.get('ai.api_key', '')
         self.max_tokens = config.get('ai.max_tokens', 4096)
         self.temperature = config.get('ai.temperature', 0.7)
-        self.timeout = config.get('ai.timeout', 120)
+        self.timeout = config.get('report.report_ai_timeout', 300)
         self.max_news_count = config.get('report.max_news_count', 20)
-        
-        self.client = OpenAI(
-            base_url=self.base_url,
-            api_key=self.api_key or "not-needed"
-        )
     
     def generate_report(self, report_type: str, hours: int = 24) -> Dict[str, Any]:
         """
@@ -44,41 +39,27 @@ class ReportGenerator:
         try:
             logger.info(f"开始生成{report_type}报告，时间范围：{hours}小时")
             
-            # 1. 获取时间范围内的新闻
+            # 1. 计算时间范围
             end_time = datetime.now(timezone(timedelta(hours=8)))
             start_time_range = end_time - timedelta(hours=hours)
             
             start_time_str = start_time_range.strftime('%Y-%m-%d %H:%M:%S')
             end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
             
-            news_list = db.get_news_by_time_range(start_time_str, end_time_str)
+            # 2. 直接查询评分最高的新闻
+            news_with_score = db.get_news_by_score(start_time_str, end_time_str, self.max_news_count)
             
-            if not news_list:
-                logger.warning(f"时间范围内没有新闻，无法生成报告")
+            if not news_with_score:
+                logger.warning(f"没有已评分的新闻，无法生成报告")
                 return {
                     'success': False,
-                    'error': '没有找到符合条件的新闻'
+                    'error': '没有找到已评分的新闻，请先对新闻进行AI处理'
                 }
             
-            logger.info(f"找到 {len(news_list)} 条新闻")
-            
-            # 2. 筛选带AI摘要的新闻
-            news_with_summary = [
-                news for news in news_list 
-                if news.get('ai_summary') or news.get('description')
-            ]
-            
-            if not news_with_summary:
-                logger.warning(f"没有带AI摘要或描述的新闻，无法生成报告")
-                return {
-                    'success': False,
-                    'error': '没有找到带AI摘要或描述的新闻'
-                }
-            
-            logger.info(f"找到 {len(news_with_summary)} 条带AI摘要的新闻")
+            logger.info(f"找到 {len(news_with_score)} 条已评分的新闻")
             
             # 3. 生成报告内容
-            report_content = self._generate_report_content(news_with_summary, report_type)
+            report_content = self._generate_report_content(news_with_score, report_type)
             
             if not report_content:
                 logger.error("报告内容生成失败")
@@ -96,7 +77,7 @@ class ReportGenerator:
                 'content': json.dumps(report_content, ensure_ascii=False),
                 'time_range_start': start_time_str,
                 'time_range_end': end_time_str,
-                'news_count': len(news_with_summary),
+                'news_count': len(news_with_score),
                 'ai_model': self.model,
                 'generation_time': time.time() - start_time
             }
@@ -116,7 +97,7 @@ class ReportGenerator:
                 'success': True,
                 'report_id': report_id,
                 'report_title': report_title,
-                'news_count': len(news_with_summary),
+                'news_count': len(news_with_score),
                 'generation_time': time.time() - start_time
             }
             
@@ -161,9 +142,9 @@ class ReportGenerator:
             prompt = self._build_report_prompt(news_data, report_type)
             
             # 调用AI
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            payload = {
+                "model": self.model,
+                "messages": [
                     {
                         "role": "system",
                         "content": "你是一个专业的新闻分析师，擅长对新闻进行分类和梳理。"
@@ -173,16 +154,61 @@ class ReportGenerator:
                         "content": prompt
                     }
                 ],
-                max_tokens=self.max_tokens,
-                temperature=self.temperature,
-                timeout=self.timeout
-            )
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature
+            }
             
-            result_text = response.choices[0].message.content.strip()
+            logger.debug(f"AI报告生成请求: {self.base_url}/v1/chat/completions")
+            logger.debug(f"AI报告生成超时设置: {self.timeout}秒")
+            
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            
+            try:
+                response = requests.post(
+                    f"{self.base_url}/v1/chat/completions",
+                    json=payload,
+                    headers=headers,
+                    timeout=self.timeout
+                )
+            except requests.Timeout:
+                logger.error(f"AI报告生成请求超时（{self.timeout}秒）")
+                return None
+            except requests.ConnectionError as e:
+                logger.error(f"AI报告生成连接失败: {e}")
+                return None
+            except requests.RequestException as e:
+                logger.error(f"AI报告生成请求异常: {e}")
+                return None
+            
+            logger.debug(f"AI报告生成响应状态: {response.status_code}")
+            
+            if response.status_code != 200:
+                logger.error(f"AI报告生成API调用失败: {response.status_code} - {response.text}")
+                return None
+            
+            data = response.json()
+            logger.debug(f"AI报告生成响应数据: {data}")
+            
+            # 检查响应数据格式
+            if 'choices' not in data or len(data['choices']) == 0:
+                logger.error("AI报告生成响应格式错误: 缺少choices字段")
+                return None
+            
+            message = data['choices'][0].get('message', {})
+            result_text = message.get('content', '').strip()
+            
+            if not result_text:
+                logger.error("AI报告生成响应内容为空")
+                return None
+            
+            # 清理AI返回的JSON格式
+            cleaned_text = self._clean_json_response(result_text)
             
             # 解析AI返回的JSON
             try:
-                report_content = json.loads(result_text)
+                report_content = json.loads(cleaned_text)
                 
                 # 验证报告内容格式
                 if not self._validate_report_content(report_content):
@@ -194,6 +220,7 @@ class ReportGenerator:
             except json.JSONDecodeError as e:
                 logger.error(f"解析AI返回的JSON失败: {e}")
                 logger.error(f"AI返回内容: {result_text}")
+                logger.error(f"清理后内容: {cleaned_text}")
                 return None
             
         except Exception as e:
@@ -270,6 +297,36 @@ JSON格式要求：
 {news_text}
 """
         return prompt
+    
+    def _clean_json_response(self, text: str) -> str:
+        """
+        清理AI返回的JSON格式
+        
+        Args:
+            text: AI返回的原始文本
+            
+        Returns:
+            清理后的JSON文本
+        """
+        import re
+        
+        # 1. 修复URL格式：移除反引号和多余空格
+        text = re.sub(r'"url":\s*`\s*([^`]+)\s*`\s*', r'"url": "\1"', text)
+        
+        # 2. 修复双冒号：将 "::" 替换为 ":"
+        text = re.sub(r'::', ':', text)
+        
+        # 3. 修复空值：将 ":"," 替换为 ": "","
+        text = re.sub(r'":\s*",\s*', '": "",', text)
+        
+        # 4. 修复只有冒号的情况：将 ":" 替换为 ": """
+        text = re.sub(r'":\s*"', '": ""', text)
+        
+        # 5. 移除多余的空格和换行
+        text = re.sub(r'\s+', ' ', text)
+        text = text.strip()
+        
+        return text
     
     def _validate_report_content(self, content: Dict) -> bool:
         """

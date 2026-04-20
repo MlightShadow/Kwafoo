@@ -88,6 +88,67 @@
             </div>
           </div>
 
+          <!-- AI评分 -->
+          <div v-if="activeTab === 'ai_score'" class="content-section">
+            <div v-if="newsDetail?.ai_score !== undefined && newsDetail?.ai_score !== null" class="ai-score-content">
+              <div class="content-label">⭐ AI评分</div>
+              
+              <!-- 总分 -->
+              <div class="score-total-section">
+                <div class="score-total-label">总分</div>
+                <div class="score-total-value" :class="getScoreClass(newsDetail.ai_score)">
+                  {{ newsDetail.ai_score.toFixed(1) }}
+                </div>
+              </div>
+
+              <!-- 维度评分 -->
+              <div class="score-dimensions">
+                <div class="score-dimension-item">
+                  <div class="score-dimension-label">主题相关性</div>
+                  <div class="score-dimension-value" :class="getScoreClass(newsDetail.ai_score_topic_relevance)">
+                    {{ newsDetail.ai_score_topic_relevance?.toFixed(1) || 'N/A' }}
+                  </div>
+                  <div class="score-dimension-bar">
+                    <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_topic_relevance || 0) + '%' }"></div>
+                  </div>
+                </div>
+
+                <div class="score-dimension-item">
+                  <div class="score-dimension-label">重要性</div>
+                  <div class="score-dimension-value" :class="getScoreClass(newsDetail.ai_score_importance)">
+                    {{ newsDetail.ai_score_importance?.toFixed(1) || 'N/A' }}
+                  </div>
+                  <div class="score-dimension-bar">
+                    <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_importance || 0) + '%' }"></div>
+                  </div>
+                </div>
+
+                <div class="score-dimension-item">
+                  <div class="score-dimension-label">AI感官分</div>
+                  <div class="score-dimension-value" :class="getScoreClass(newsDetail.ai_score_freshness)">
+                    {{ newsDetail.ai_score_freshness?.toFixed(1) || 'N/A' }}
+                  </div>
+                  <div class="score-dimension-bar">
+                    <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_freshness || 0) + '%' }"></div>
+                  </div>
+                </div>
+
+                <div class="score-dimension-item">
+                  <div class="score-dimension-label">来源可信度</div>
+                  <div class="score-dimension-value" :class="getScoreClass(newsDetail.ai_score_source)">
+                    {{ newsDetail.ai_score_source?.toFixed(1) || 'N/A' }}
+                  </div>
+                  <div class="score-dimension-bar">
+                    <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_source || 0) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-content">
+              <p>暂无AI评分</p>
+            </div>
+          </div>
+
           <!-- 调试信息 -->
           <div v-if="activeTab === 'debug'" class="content-section">
             <div class="debug-info-content">
@@ -110,8 +171,19 @@
               </div>
               <div v-else class="all-fields-list">
                 <div v-for="(value, key) in allFields" :key="key" class="all-fields-row">
-                  <div class="all-fields-label">{{ key }}</div>
-                  <div class="all-fields-value">{{ value }}</div>
+                  <div class="all-fields-header">
+                    <div class="all-fields-label">{{ key }}</div>
+                    <button 
+                      v-if="shouldShowFieldCollapseButton(value)"
+                      @click="toggleFieldCollapse(key)"
+                      class="field-collapse-button"
+                    >
+                      {{ isFieldCollapsed(key) ? '展开' : '收起' }}
+                    </button>
+                  </div>
+                  <div class="all-fields-value" :class="{ collapsible: shouldShowFieldCollapseButton(value), collapsed: isFieldCollapsed(key) }">
+                    {{ value }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -204,6 +276,7 @@ const tabs = [
   { key: 'description', label: '原文摘要' },
   { key: 'content', label: '正文' },
   { key: 'compressed_content', label: '压缩正文' },
+  { key: 'ai_score', label: 'AI评分' },
   { key: 'all_fields', label: '所有字段' },
   { key: 'ai_history', label: 'AI处理历史' },
   { key: 'debug', label: '调试信息' }
@@ -257,6 +330,31 @@ function getStatusText(status: string): string {
     'failed': '失败'
   }
   return statusMap[status] || status
+}
+
+function getScoreClass(score?: number): string {
+  if (score === undefined || score === null) return ''
+  if (score >= 80) return 'score-high'
+  if (score >= 60) return 'score-medium'
+  return 'score-low'
+}
+
+// 字段折叠状态管理
+const collapsedFields = ref<Record<string, boolean>>({})
+
+function isFieldCollapsed(key: string): boolean {
+  return collapsedFields.value[key] !== false
+}
+
+function shouldShowFieldCollapseButton(value?: any): boolean {
+  if (!value) return false
+  const text = String(value)
+  // 估算行数：假设每行约20个字符，超过100字符（约5行）才显示折叠按钮
+  return text.length > 100
+}
+
+function toggleFieldCollapse(key: string) {
+  collapsedFields.value[key] = !collapsedFields.value[key]
 }
 
 defineExpose({
@@ -564,7 +662,7 @@ defineExpose({
 .all-fields-row {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.5rem;
   background: white;
   border-radius: 6px;
   padding: 0.875rem;
@@ -572,11 +670,17 @@ defineExpose({
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.all-fields-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .all-fields-label {
   font-size: 0.875rem;
   color: #6b7280;
   font-weight: 600;
-  margin-bottom: 0.25rem;
 }
 
 .all-fields-value {
@@ -585,6 +689,49 @@ defineExpose({
   word-break: break-word;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+/* 所有字段折叠功能样式 */
+.all-fields-value.collapsible {
+  transition: max-height 0.3s ease;
+  overflow: hidden;
+}
+
+.all-fields-value.collapsible.collapsed {
+  max-height: 72px; /* 3行高度：line-height 1.6 * font-size 0.9375rem ≈ 24px/行 * 3行 = 72px */
+  position: relative;
+}
+
+.all-fields-value.collapsible.collapsed::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(transparent, rgba(255, 255, 255, 0.95));
+  pointer-events: none;
+}
+
+.field-collapse-button {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #3b82f6;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.field-collapse-button:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.field-collapse-button:active {
+  transform: scale(0.98);
 }
 
 /* AI处理历史样式 */
@@ -698,6 +845,121 @@ defineExpose({
 .empty-content p {
   margin: 0;
   font-size: 1rem;
+}
+
+/* AI评分样式 */
+.ai-score-content {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  padding: 1.5rem;
+}
+
+.score-total-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.score-total-label {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.score-total-value {
+  font-size: 2rem;
+  font-weight: 700;
+  padding: 0.5rem 1.5rem;
+  border-radius: 8px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.score-total-value.score-high {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  border: 2px solid #22c55e;
+}
+
+.score-total-value.score-medium {
+  background: linear-gradient(135deg, #fef9c3 0%, #fef08a 100%);
+  color: #854d0e;
+  border: 2px solid #eab308;
+}
+
+.score-total-value.score-low {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 2px solid #ef4444;
+}
+
+.score-dimensions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.score-dimension-item {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.score-dimension-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.score-dimension-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.score-dimension-value.score-high {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #22c55e;
+}
+
+.score-dimension-value.score-medium {
+  background: #fef9c3;
+  color: #854d0e;
+  border: 1px solid #eab308;
+}
+
+.score-dimension-value.score-low {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.score-dimension-bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+.score-dimension-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
+  transition: width 0.5s ease;
 }
 
 @media (max-width: 768px) {

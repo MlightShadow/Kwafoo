@@ -4,26 +4,8 @@ path = "data/kwafoo.db"
 [news_sources]
 
 [[news_sources.rss]]
-url = "https://www.ruanyifeng.com/blog/atom.xml"
-name = "阮一峰的网络日志"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
 url = "https://sspai.com/feed"
 name = "少数派"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
-url = "https://www.solidot.org/index.rss"
-name = "奇客Solidot–传递最新科技情报"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
-url = "http://feed.appinn.com/"
-name = "小众软件"
 enabled = true
 fetch_days = 2
 
@@ -40,26 +22,8 @@ enabled = true
 fetch_days = 2
 
 [[news_sources.rss]]
-url = "https://www.36kr.com/feed"
-name = "36氪"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
 url = "https://www.yystv.cn/rss/feed"
 name = "游戏研究社"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
-url = "http://blog.devtang.com/atom.xml"
-name = "唐巧的博客"
-enabled = true
-fetch_days = 2
-
-[[news_sources.rss]]
-url = "https://xueqiu.com/hots/topic/rss"
-name = "今日话题 - 雪球"
 enabled = true
 fetch_days = 2
 
@@ -100,13 +64,54 @@ max_tokens = 4096
 temperature = 0.7
 max_workers = 1
 batch_size = 1
-enable_summary = true
-summary_threshold = 140
 max_input_length = 2000
 timeout = 120
 enable_summary_comment = true
 enable_classifier_reasoning = false
 enable_summarizer_reasoning = false
+
+# 是否启用自动AI处理（在新闻抓取成功后自动添加到AI处理队列）
+auto_process = false
+
+[ai.scoring]
+# 重要性描述（用于AI判断新闻重要性）
+importance_description = """
+我关注以下方面的新闻：
+1. 科技创新和人工智能发展
+2. 财经市场动态和投资机会
+3. 国际重大事件和外交关系
+4. 政策变化和法规更新
+5. 行业趋势和商业模式创新
+"""
+
+# AI感官分描述（用于AI判断新闻阅读价值）
+ai_feeling_description = """
+我喜欢的新闻类型：
+1. 有深度分析和独特观点的新闻
+2. 提供实用信息和解决方案的新闻
+3. 有创新性和前瞻性的新闻
+4. 数据详实、逻辑清晰的新闻
+5. 有启发性和教育意义的新闻
+
+我不喜欢的新闻类型：
+1. 纯粹标题党、内容空洞的新闻
+2. 重复陈旧、缺乏新意的新闻
+3. 偏激极端、缺乏客观性的新闻
+4. 广告性质明显、缺乏价值的新闻
+5. 内容混乱、逻辑不清的新闻
+"""
+
+# 用户兴趣关键词（用于主题相关性评分）
+interest_keywords = ["人工智能", "科技", "财经", "投资", "国际", "政策", "创新"]
+
+# 高可信度来源列表（用于来源可信度评分）
+trusted_sources = ["少数派", "36氪", "IT之家"]
+
+# 评分维度权重
+topic_relevance_weight = 0.4    # 主题相关性权重
+importance_weight = 0.3          # 重要性权重
+ai_feeling_weight = 0.2           # AI感官分权重
+source_weight = 0.1              # 来源可信度权重
 
 [ai.comment_stance]
 # 国籍示例：中国、美国、英国、日本、韩国、德国、法国、俄罗斯等
@@ -196,36 +201,76 @@ position = "right"  # "right" 或 "left"
 show_thumbnail = true  # 是否显示缩略图
 
 [[categories]]
-name = "科技"
-description = "涉及人工智能、科技产品、互联网、编程、软件、硬件等技术相关内容"
-keywords = ["人工智能", "科技"]
+name = "人工智能"
+description = "涉及人工智能技术、机器学习、深度学习、大语言模型、AI应用、AI产品等人工智能相关内容"
+keywords = ["人工智能", "AI", "机器学习", "深度学习", "大模型", "LLM", "ChatGPT", "GPT", "神经网络", "算法", "智能", "生成式AI", "自动驾驶", "机器人"]
+
+[[categories]]
+name = "电子硬件"
+description = "涉及计算机、服务器、芯片、显卡、处理器、存储设备等电子工程硬件相关内容"
+keywords = ["硬件", "芯片", "显卡", "处理器", "CPU", "GPU", "内存", "硬盘", "SSD", "主板", "显示器", "键盘", "鼠标", "耳机", "音响", "摄像头", "服务器", "电子工程", "电路", "半导体"]
+icon = "🔧"
+color = "#7f8c8d"
+
+[[categories]]
+name = "信息技术"
+description = "涉及互联网、编程、软件、数据库、网络安全、云计算、大数据、物联网等信息技术相关内容"
+keywords = ["互联网", "编程", "软件", "代码", "开发", "数据库", "网络安全", "云计算", "大数据", "物联网", "5G", "区块链", "Web", "App", "API", "算法", "开源", "GitHub", "Git", "DevOps", "SaaS"]
 icon = "💻"
+color = "#00cec9"
+
+[[categories]]
+name = "前沿科技"
+description = "涉及理论物理、生物科技、量子计算、基因编辑、新材料、新能源等前沿科技领域，而非通用或实现了产业化的科技产品"
+keywords = ["理论物理", "量子", "生物科技", "基因编辑", "新材料", "新能源", "纳米技术", "脑机接口", "可控核聚变", "暗物质", "黑洞", "相对论", "CRISPR", "干细胞", "合成生物学"]
+icon = "🔬"
 color = "#3498db"
 
 [[categories]]
-name = "财经"
-description = "涉及股票、金融、经济、投资、企业财报等财经相关内容"
-keywords = ["股票", "金融", "经济", "投资"]
+name = "金融贸易"
+description = "涉及股票、金融、经济、投资、企业财报、贸易等金融贸易相关内容"
+keywords = ["股票", "金融", "经济", "投资", "财报", "基金", "债券", "期货", "外汇", "银行", "保险", "贸易", "进出口"]
 icon = "💰"
 color = "#27ae60"
 
 [[categories]]
-name = "国际"
-description = "涉及国际新闻、世界大事、外交关系等国际相关内容"
-keywords = ["国际", "世界", "外交"]
+name = "国际政治"
+description = "涉及国际新闻、世界大事、外交关系、政治事件、国际法律、国际环境、国际军事、国际交通等国际政治相关内容"
+keywords = ["国际", "世界", "外交", "全球", "跨国", "联合国", "欧盟", "美国", "欧洲", "亚洲", "非洲", "政治", "选举", "政策", "国际法", "国际环境", "气候变化", "国际军事", "国际交通", "国际航空", "国际航运"]
 icon = "🌍"
 color = "#e74c3c"
 
 [[categories]]
-name = "体育"
-description = "涉及体育赛事、运动员、体育组织等体育相关内容"
-keywords = ["体育", "足球", "篮球"]
-icon = "⚽"
-color = "#f39c12"
+name = "教育文化"
+description = "涉及教育、学校、培训、考试、留学、教育政策、文化、艺术、历史、考古、博物馆等教育文化相关内容"
+keywords = ["教育", "学校", "大学", "高考", "考研", "留学", "培训", "考试", "教师资格", "教育政策", "在线教育", "职业教育", "幼儿教育", "义务教育", "文化", "艺术", "历史", "考古", "博物馆", "文物", "非遗", "传统文化", "现代艺术", "书法", "绘画", "雕塑", "文化遗产"]
+icon = "🎓"
+color = "#8e44ad"
 
 [[categories]]
-name = "娱乐"
-description = "涉及电影、音乐、明星、娱乐活动等娱乐相关内容"
-keywords = ["娱乐", "电影", "音乐"]
-icon = "🎬"
+name = "生活娱乐"
+description = "涉及日常生活、美食、游戏、电影、音乐、明星、娱乐活动等生活娱乐相关内容"
+keywords = ["生活", "美食", "游戏", "娱乐", "电影", "音乐", "明星", "电视剧", "综艺", "演唱会", "演员", "歌手", "导演", "票房", "旅游", "烹饪"]
+icon = "🎮"
 color = "#9b59b6"
+
+[[categories]]
+name = "国内民生"
+description = "涉及国内与个人生活相关的新闻，包括住房、就业、社会保障、民生政策、国内法律、国内环境、国内交通等"
+keywords = ["民生", "住房", "就业", "社保", "民生政策", "户籍", "国内交通", "国内环境", "食品安全", "物价", "养老", "工资", "福利", "国内法律", "法规", "司法", "法院", "检察院", "律师", "判决", "案件", "起诉", "辩护", "民法典", "刑法", "行政诉讼", "环保", "污染", "生态", "垃圾分类", "空气质量", "水污染", "土壤污染", "交通", "出行", "国内汽车", "公交", "地铁", "出租车", "网约车", "高速公路", "机场", "火车站", "交通法规"]
+icon = "🏠"
+color = "#e67e22"
+
+[[categories]]
+name = "医疗健康"
+description = "医疗健康领域的新闻，主要关注已经实现的治疗方法、医疗技术、健康养生等，而非前沿医疗研究"
+keywords = ["医疗", "治疗", "养生", "医院", "药物", "疫苗", "手术", "诊断", "医保", "医生", "护士", "疾病", "预防"]
+icon = "🏥"
+color = "#1abc9c"
+
+[[categories]]
+name = "消费产品"
+description = "涉及非计算机硬件领域的产品发布、产品质量、消费者维权、产品评测等相关内容"
+keywords = ["产品", "发布会", "质量", "维权", "评测", "体验", "功能", "设计", "价格", "销量", "召回", "家电", "家具", "汽车", "服装", "食品"]
+icon = "📦"
+color = "#95a5a6"

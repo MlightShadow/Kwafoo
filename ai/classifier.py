@@ -9,6 +9,7 @@ class AIClassifier(ConfigObserver):
     def __init__(self) -> None:
         self.base_url: str = config.get('ai.base_url', 'http://localhost:1234')
         self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
+        self.api_key: str = config.get('ai.api_key', '')
         self.max_tokens: int = config.get('ai.max_tokens', 4096)
         self.temperature: float = config.get('ai.temperature', 0.7)
         self.enable_reasoning: bool = config.get('ai.enable_classifier_reasoning', False)
@@ -37,6 +38,7 @@ class AIClassifier(ConfigObserver):
         ai_config = config.get('ai', {})
         self.base_url = ai_config.get('base_url', 'http://localhost:1234')
         self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
+        self.api_key = ai_config.get('api_key', '')
         self.max_tokens = ai_config.get('max_tokens', 4096)
         self.temperature = ai_config.get('temperature', 0.7)
         self.enable_reasoning = ai_config.get('enable_classifier_reasoning', False)
@@ -52,7 +54,7 @@ class AIClassifier(ConfigObserver):
         self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
 
     def classify(self, title: str, description: str, 
-                 source_category: str = None) -> Optional[List[str]]:
+                 source_category: str = None) -> Optional[Dict[str, Any]]:
         try:
             # AI分类始终可以执行（不受配置控制）
             # 配置只影响自动执行，不影响手动调用
@@ -60,6 +62,8 @@ class AIClassifier(ConfigObserver):
             # 限制输入长度
             truncated_title = title[:200] if title else ''
             truncated_description = description[:self.max_input_length] if description else ''
+            
+            logger.debug(f"AI分类输入: title={truncated_title[:50]}..., description_length={len(truncated_description)}")
             
             prompt = self._build_classify_prompt(truncated_title, truncated_description)
             
@@ -70,14 +74,14 @@ class AIClassifier(ConfigObserver):
                 "messages": [
                     {
                         "role": "system",
-                        "content": "你是一个专业的新闻分类助手，负责准确识别新闻的分类。"
+                        "content": "你是一个专业的新闻分类助手，负责准确识别新闻的分类和提取关键字。"
                     },
                     {
                         "role": "user",
                         "content": prompt
                     }
                 ],
-                "max_tokens": 256,
+                "max_tokens": 512,
                 "temperature": self.temperature
             }
             
@@ -90,10 +94,15 @@ class AIClassifier(ConfigObserver):
             logger.debug(f"AI分类请求: {self.base_url}/v1/chat/completions")
             logger.debug(f"AI分类超时设置: {self.timeout}秒")
             
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            
             try:
                 response = requests.post(
                     f"{self.base_url}/v1/chat/completions",
                     json=payload,
+                    headers=headers,
                     timeout=self.timeout
                 )
             except requests.Timeout:
@@ -115,16 +124,27 @@ class AIClassifier(ConfigObserver):
             data = response.json()
             logger.debug(f"AI分类响应数据: {data}")
             
-            # 使用模型适配器提取分类结果
-            categories = self.model_adapter.extract_classification(
+            # 使用模型适配器提取分类结果和关键字
+            result = self.model_adapter.extract_classification_with_keywords(
                 data, 
                 self.categories, 
                 self.default_category
             )
             
-            if categories:
-                logger.info(f"AI分类完成: {categories}")
-                return categories
+            if result:
+                categories = result.get('categories', [])
+                keywords = result.get('keywords', [])
+                
+                # 如果AI没有返回分类，则根据关键字命中情况选取1-2个标签
+                if not categories and keywords:
+                    categories = self._classify_by_keywords(keywords)
+                    logger.info(f"AI未返回分类，根据关键字命中情况选取分类: {categories}")
+                
+                logger.info(f"AI分类完成: {categories}, 关键字: {keywords}")
+                return {
+                    'categories': categories,
+                    'keywords': keywords
+                }
             else:
                 logger.warning("AI分类返回空结果")
                 return None
@@ -133,21 +153,69 @@ class AIClassifier(ConfigObserver):
             logger.error(f"AI分类失败: {e}")
             return None
 
+    def _classify_by_keywords(self, keywords: List[str]) -> List[str]:
+        """
+        根据关键字命中情况选取1-2个分类
+        
+        Args:
+            keywords: AI提取的关键字列表
+            
+        Returns:
+            分类列表
+        """
+        if not keywords:
+            logger.warning("关键字列表为空，返回默认分类")
+            return [self.default_category]
+        
+        logger.debug(f"根据关键字分类: keywords={keywords}")
+        
+        # 统计每个分类的关键字命中次数
+        category_scores = {}
+        
+        for cat_config in self.categories_config:
+            category_name = cat_config.get('name', '')
+            category_keywords = cat_config.get('keywords', [])
+            
+            if not category_keywords:
+                continue
+            
+            score = 0
+            for keyword in keywords:
+                for cat_keyword in category_keywords:
+                    if keyword.lower() in cat_keyword.lower() or cat_keyword.lower() in keyword.lower():
+                        score += 1
+                        break
+            
+            if score > 0:
+                category_scores[category_name] = score
+                logger.debug(f"分类 {category_name} 命中 {score} 次")
+        
+        # 按命中次数排序
+        sorted_categories = sorted(category_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        # 选取前1-2个分类
+        if sorted_categories:
+            result = [sorted_categories[0][0]]
+            if len(sorted_categories) > 1 and sorted_categories[1][1] > 0:
+                result.append(sorted_categories[1][0])
+            logger.info(f"根据关键字命中情况选取分类: {result}, 命中次数: {sorted_categories[:2]}")
+            return result
+        
+        # 如果没有命中任何分类，返回默认分类
+        logger.warning("没有命中任何分类，返回默认分类")
+        return [self.default_category]
+
     def _build_classify_prompt(self, title: str, description: str) -> str:
         categories_str = '、'.join(self.categories)
         
-        # 从配置中读取分类描述
+        # 从配置中读取分类描述（不包含关键字）
         category_descriptions = []
         for cat_config in self.categories_config:
             name = cat_config.get('name', '')
             cat_description = cat_config.get('description', '')
-            keywords = cat_config.get('keywords', [])
-            keywords_str = '、'.join(keywords[:3]) if keywords else ''
             
             if cat_description:
                 category_descriptions.append(f"- {name}：{cat_description}")
-            elif keywords:
-                category_descriptions.append(f"- {name}：{keywords_str}")
         
         category_desc_str = '\n'.join(category_descriptions)
         
@@ -167,12 +235,12 @@ class AIClassifier(ConfigObserver):
             )
         else:
             # 使用默认提示词
-            return f"""请根据以下新闻的标题和描述，判断它属于哪个分类。
+            return f"""请根据以下新闻的标题和描述，判断它属于哪个分类，并提取10个关键字。
 
 可用分类：
 {categories_str}
 
-分类说明：
+分类说明（请仔细阅读以下每个分类的详细描述）：
 {category_desc_str}
 
 标题：{title}
@@ -180,18 +248,29 @@ class AIClassifier(ConfigObserver):
 描述：{desc_text}
 
 要求：
-1. 仔细分析新闻的核心内容，选择最相关的1-2个分类
-2. 如果新闻主要涉及一个分类，只返回一个分类
-3. 如果新闻确实涉及多个分类，最多返回2个分类，用逗号分隔
-4. 不要为了保险而选择多个分类，只选择真正相关的
-5. **重要：必须从以下分类中选择一个：{categories_str}**
-6. **不要返回"未分类"，即使新闻看起来不相关，也要选择最接近的分类**
-7. **重要：只返回分类的中文名称（如科技、财经等），不要返回其他内容**
+1. **首先仔细阅读上述"分类说明"中每个分类的详细描述，理解每个分类的适用范围**
+2. 根据新闻的核心内容，选择最相关的1-2个分类
+3. 如果新闻主要涉及一个分类，只返回一个分类
+4. 如果新闻确实涉及多个分类，最多返回2个分类，用逗号分隔
+5. 不要为了保险而选择多个分类，只选择真正相关的
+6. **重要：必须从以下分类中选择一个：{categories_str}**
+7. **不要返回"未分类"，即使新闻看起来不相关，也要选择最接近的分类**
+8. **提取新闻中的10个关键字，关键字应该能够代表新闻的核心内容**
+9. **关键字应该是新闻中出现的词汇，而不是分类名称**
+10. **格式要求：按照以下格式返回结果**
+    - 分类：分类名称（如"科技"或"科技,财经"）
+    - 关键字：关键字1,关键字2,关键字3,关键字4,关键字5,关键字6,关键字7,关键字8,关键字9,关键字10
 
 示例：
-- 科技新闻：返回"科技"
-- 财经新闻：返回"财经"
-- 科技+财经：返回"科技,财经"或"财经,科技"
+- 科技新闻：
+  分类：科技
+  关键字：人工智能,机器学习,深度学习,神经网络,算法,数据,模型,训练,预测,应用
+- 财经新闻：
+  分类：财经
+  关键字：股票,市场,投资,经济,金融,企业,财报,利润,增长,股价
+- 科技+财经：
+  分类：科技,财经
+  关键字：人工智能,投资,融资,创业,科技,市场,经济,创新,企业,发展
 """
 
 

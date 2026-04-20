@@ -1,8 +1,11 @@
 """
 报告相关API模块
 """
+import threading
+import time
 from typing import Dict, Any
 from utils.logger import logger
+from utils.progress import progress_monitor
 from database import db
 from ai.report_generator import report_generator
 from utils.validators import (
@@ -24,30 +27,54 @@ class ReportAPI:
     
     @validate_generate_report_params
     def generate_report(self, handler, params: GenerateReportParams):
-        """生成报告（手动触发）"""
+        """生成报告（手动触发，异步执行）"""
         try:
             report_type = params.report_type
             hours = params.hours
             
-            logger.info(f"开始生成{report_type}报告，时间范围：{hours}小时")
+            # 生成任务ID
+            task_id = f"report_{report_type}_{int(time.time())}"
+            task_name = f"生成{report_type}报告"
             
-            # 生成报告
-            result = report_generator.generate_report(report_type, hours)
+            logger.info(f"开始生成{report_type}报告，时间范围：{hours}小时，任务ID: {task_id}")
             
-            if result['success']:
-                handler._send_json_response({
-                    'success': True,
-                    'message': '报告生成成功',
-                    'report_id': result['report_id'],
-                    'report_title': result['report_title'],
-                    'news_count': result['news_count'],
-                    'generation_time': result['generation_time']
-                })
-            else:
-                handler._send_error_response(result.get('error', '报告生成失败'))
+            # 创建进度任务
+            progress_monitor.start_task(task_id, task_name)
+            
+            # 在后台线程中执行报告生成
+            def _generate_report_async():
+                try:
+                    progress_monitor.update_progress(task_id, 10, "正在获取新闻数据...")
+                    
+                    # 生成报告
+                    result = report_generator.generate_report(report_type, hours)
+                    
+                    if result['success']:
+                        progress_monitor.update_progress(task_id, 90, "正在保存报告...")
+                        progress_monitor.complete_task(task_id, True)
+                        logger.info(f"报告生成成功，任务ID: {task_id}")
+                    else:
+                        progress_monitor.complete_task(task_id, False, result.get('error', '报告生成失败'))
+                        logger.error(f"报告生成失败，任务ID: {task_id}: {result.get('error')}")
+                        
+                except Exception as e:
+                    logger.error(f"报告生成异常，任务ID: {task_id}: {e}")
+                    progress_monitor.complete_task(task_id, False, str(e))
+            
+            # 启动后台线程
+            thread = threading.Thread(target=_generate_report_async, daemon=True)
+            thread.start()
+            
+            # 立即返回任务ID
+            handler._send_json_response({
+                'success': True,
+                'message': '报告生成任务已启动',
+                'task_id': task_id,
+                'task_name': task_name
+            })
                 
         except Exception as e:
-            logger.error(f"生成报告失败: {e}")
+            logger.error(f"启动报告生成任务失败: {e}")
             handler._send_error_response(str(e))
     
     @validate_get_reports_params

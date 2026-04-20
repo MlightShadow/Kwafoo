@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios'
 import type { News, NewsStats } from '@/types/news'
 import type { ChatResponse } from '@/types/chat'
 import type { Config } from '@/types/config'
-import type { Report, GenerateReportParams, GetReportsParams } from '@/types/report'
+import type { Report, GenerateReportParams, GenerateReportResponse, GetReportsParams } from '@/types/report'
 
 class APIClient {
   private client: AxiosInstance
@@ -143,14 +143,7 @@ class APIClient {
   }
 
   // Report API
-  async generateReport(params: GenerateReportParams): Promise<AxiosResponse<{ 
-    success: boolean; 
-    message: string; 
-    report_id: number; 
-    report_title: string; 
-    news_count: number; 
-    generation_time: number 
-  }>> {
+  async generateReport(params: GenerateReportParams): Promise<AxiosResponse<GenerateReportResponse>> {
     return this.client.post('/reports/generate', params)
   }
 

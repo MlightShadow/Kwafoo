@@ -44,6 +44,13 @@
             >
               {{ category.name }}
             </span>
+            <span 
+              v-if="news.ai_score !== undefined && news.ai_score !== null"
+              class="news-score"
+              :class="scoreClass"
+            >
+              ⭐ {{ news.ai_score.toFixed(1) }}
+            </span>
           </div>
           <div class="news-actions">
             <a v-if="news.url" :href="news.url" target="_blank" class="news-link" title="阅读原文">
@@ -68,6 +75,11 @@
           </div>
         </div>
       </div>
+    </div>
+    
+    <!-- AI评价 -->
+    <div v-if="news.ai_comment" class="news-comment ai-generated">
+      <div class="comment-content">{{ news.ai_comment }}</div>
     </div>
     
     <!-- AI摘要或描述 -->
@@ -319,6 +331,15 @@ const categoryList = computed(() => {
   return categoryList
 })
 
+const scoreClass = computed(() => {
+  if (props.news.ai_score === undefined || props.news.ai_score === null) return ''
+  
+  const score = props.news.ai_score
+  if (score >= 80) return 'score-high'
+  if (score >= 60) return 'score-medium'
+  return 'score-low'
+})
+
 function formatTime(timeString?: string): string {
   if (!timeString) return ''
   
@@ -544,6 +565,34 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   color: white;
 }
 
+/* 评分样式 */
+.news-score {
+  padding: 0.1875rem 0.5rem;
+  border-radius: 9999px;
+  background: #f3f4f6;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.75rem;
+}
+
+.news-score.score-high {
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+  border: 1px solid #10b981;
+}
+
+.news-score.score-medium {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.news-score.score-low {
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
 /* 按钮样式 */
 .news-actions {
   display: flex;
@@ -603,6 +652,28 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 .read-toggle-btn:disabled:hover {
   transform: none;
   background: transparent;
+}
+
+/* AI评价样式 */
+.news-comment {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: #92400e;
+  line-height: 1.5;
+  position: relative;
+  z-index: 1;
+  margin: 0 1rem 0.5rem 1rem;
+}
+
+.news-comment.ai-generated {
+  font-weight: 500;
+}
+
+.comment-content {
+  word-break: break-word;
 }
 
 /* AI摘要样式 */

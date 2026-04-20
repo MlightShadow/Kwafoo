@@ -5,117 +5,21 @@ from utils.helpers import config
 from database import db
 from ai.classifier import ai_classifier
 from ai.summarizer import ai_summarizer
+from ai.scorer import ai_scorer
 
 
 class AINewsProcessor:
     def __init__(self):
-        self.max_workers = config.get('ai.max_workers', 4)
-        self.batch_size = config.get('ai.batch_size', 10)
-        self.enable_ai_category = config.get('enable_ai_category', False)
-        self.enable_ai_summary = config.get('enable_ai_summary', False)
+        self.auto_process = config.get('ai.auto_process', False)
         
         self.processing = False
-        self.processed_count = 0
-        self.failed_count = 0
         
         # 使用锁保护共享状态
         self._lock = threading.Lock()
 
-    def process_news(self, news_id: int, news_data: Dict[str, Any], manual: bool = False) -> Dict[str, Any]:
-        try:
-            title = news_data.get('title', '')
-            description = news_data.get('description', '')
-            content = news_data.get('content', '')
-            
-            result = {
-                'news_id': news_id,
-                'success': False,
-                'category_updated': False,
-                'summary_updated': False,
-                'error': None
-            }
-            
-            category_updated = False
-            summary_updated = False
-            
-            # AI分类：手动执行时始终执行，自动执行时根据配置决定
-            should_do_category = manual or self.enable_ai_category
-            
-            if should_do_category:
-                try:
-                    categories = ai_classifier.classify(title, description, None)
-                    if categories:
-                        category_str = ','.join(categories)
-                        if db.update_news_category(news_id, category_str):
-                            result['category_updated'] = True
-                            category_updated = True
-                            logger.debug(f"新闻分类已更新: ID={news_id}, category={category_str}")
-                    else:
-                        logger.debug(f"AI分类返回空结果: ID={news_id}")
-                except Exception as e:
-                    logger.warning(f"AI分类失败: ID={news_id}, error={e}")
-            else:
-                logger.debug(f"AI分类未启用，跳过: ID={news_id}")
-            
-            # AI摘要：手动执行时始终执行，自动执行时根据配置决定
-            should_do_summary = manual or self.enable_ai_summary
-            
-            if should_do_summary:
-                try:
-                    summary = ai_summarizer.generate_summary(content, description, title)
-                    if summary:
-                        if db.update_news_summary(news_id, summary):
-                            result['summary_updated'] = True
-                            summary_updated = True
-                            logger.debug(f"新闻摘要已更新: ID={news_id}")
-                        else:
-                            logger.debug(f"AI摘要返回空结果: ID={news_id}")
-                except Exception as e:
-                    logger.warning(f"AI摘要失败: ID={news_id}, error={e}")
-            elif not should_do_summary:
-                logger.debug(f"AI摘要未启用，跳过: ID={news_id}")
-            else:
-                logger.debug(f"无描述和标题，跳过AI摘要: ID={news_id}")
-            
-            if db.update_news_ai_status(news_id, True):
-                result['success'] = True
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"处理新闻失败: ID={news_id}, error={e}")
-            return {
-                'news_id': news_id,
-                'success': False,
-                'category_updated': False,
-                'summary_updated': False,
-                'error': str(e)
-            }
-
-    def process_batch(self, news_list: List[Dict[str, Any]], manual: bool = False) -> Dict[str, Any]:
-        results = {
-            'total': len(news_list),
-            'success': 0,
-            'failed': 0,
-            'details': []
-        }
-        
-        for news in news_list:
-            result = self.process_news(news['id'], news, manual)
-            results['details'].append(result)
-            
-            if result['success']:
-                results['success'] += 1
-            else:
-                results['failed'] += 1
-            
-            logger.info(f"新闻处理完成: ID={news['id']}, 成功={result['success']}, 分类={result['category_updated']}, 摘要={result['summary_updated']}")
-        
-        return results
-
     def process_all_unprocessed(self, task_id: str = None, manual: bool = False) -> Dict[str, Any]:
         """
-        处理所有未处理的新闻
+        处理所有未处理的新闻（添加到队列）
         
         Args:
             task_id: 任务ID，用于进度监控
@@ -124,32 +28,19 @@ class AINewsProcessor:
         Returns:
             处理结果字典
         """
-        # 检查配置，如果AI分类和摘要都未启用，则不执行（仅对自动执行）
-        if not manual and not self.enable_ai_category and not self.enable_ai_summary:
-            logger.info("AI分类和摘要均未启用，跳过自动处理")
+        # 检查配置，如果自动AI处理未启用，则不执行（仅对自动执行）
+        if not manual and not self.auto_process:
+            logger.info("自动AI处理未启用，跳过自动处理")
             return {
                 'status': 'skipped',
-                'message': 'AI分类和摘要均未启用'
+                'message': '自动AI处理未启用'
             }
-        
-        # 使用锁保护processing状态的检查和设置
-        with self._lock:
-            if self.processing:
-                logger.warning("AI处理器正在运行中")
-                return {
-                    'status': 'running',
-                    'message': 'AI处理器正在运行中'
-                }
-            
-            self.processing = True
-            self.processed_count = 0
-            self.failed_count = 0
         
         execution_type = "手动执行" if manual else "自动执行"
         logger.info(f"开始处理未处理的新闻（{execution_type}）")
         
         try:
-            # 先获取所有未处理的新闻总数
+            # 获取所有未处理的新闻
             all_unprocessed = db.get_unprocessed_news(limit=10000)
             total_news = len(all_unprocessed)
             
@@ -164,47 +55,25 @@ class AINewsProcessor:
             
             logger.info(f"总共需要处理 {total_news} 条新闻")
             
-            total_processed = 0
-            total_success = 0
-            total_failed = 0
+            # 将所有未处理的新闻添加到队列
+            added_count = 0
+            for news in all_unprocessed:
+                news_id = news['id']
+                # 添加到AI队列（完整分析任务）
+                task_priority = 1 if manual else 2
+                task_id_result = db.add_to_ai_queue(news_id, 'all', priority=task_priority)
+                if task_id_result > 0:
+                    added_count += 1
             
-            batch_index = 0
-            while True:
-                news_list = db.get_unprocessed_news(self.batch_size)
-                
-                if not news_list:
-                    logger.info("没有更多未处理的新闻")
-                    break
-                
-                logger.info(f"开始处理批次: {len(news_list)} 条新闻")
-                
-                # 根据manual参数决定是否受配置控制
-                batch_result = self.process_batch(news_list, manual=manual)
-                
-                total_processed += batch_result['total']
-                total_success += batch_result['success']
-                total_failed += batch_result['failed']
-                
-                # 更新进度
-                progress = int((total_processed / total_news) * 100)
-                logger.debug(f"AI处理进度: {progress}% ({total_processed}/{total_news})")
-                
-                # 如果提供了task_id，更新进度监控
-                if task_id:
-                    progress_monitor.update_progress(task_id, progress, f"已处理 {total_processed}/{total_news} 条新闻")
-                
-                logger.debug(
-                    f"批次完成: 成功={batch_result['success']}, "
-                    f"失败={batch_result['failed']}"
-                )
-                
-                batch_index += 1
+            # 更新进度
+            if task_id:
+                progress_monitor.update_progress(task_id, 100, f"已将 {added_count}/{total_news} 条新闻添加到AI队列")
             
             result = {
                 'status': 'completed',
-                'total': total_processed,
-                'success': total_success,
-                'failed': total_failed
+                'total': total_news,
+                'success': added_count,
+                'failed': total_news - added_count
             }
             
             logger.info(f"AI处理完成（{execution_type}）: {result}")
@@ -247,35 +116,160 @@ class AINewsProcessor:
                 }
 
             news_data = news_list[0]
+            
+            # 提取常用字段
+            title = news_data.get('title', '')
+            description = news_data.get('description', '')
+            content = news_data.get('content', '')
+            compressed_content = news_data.get('compressed_content', '')
+            ai_summary = news_data.get('ai_summary', '')
 
-            # 根据任务类型处理
-            if task_type in ('category', 'all'):
-                # AI分类
-                try:
-                    categories = ai_classifier.classify(
-                        news_data.get('title', ''),
-                        news_data.get('description', ''),
-                        None
-                    )
-                    if categories:
-                        category_str = ','.join(categories)
-                        db.update_news_category(news_id, category_str)
-                        logger.debug(f"新闻分类已更新: ID={news_id}, category={category_str}")
-                except Exception as e:
-                    logger.warning(f"AI分类失败: ID={news_id}, error={e}")
-
+            # 按照顺序处理：1. AI摘要 2. AI分类 3. AI评分
+            
+            # 1. AI摘要（最先进行）
             if task_type in ('summary', 'all'):
                 # AI摘要
                 try:
                     description = news_data.get('description', '')
                     content = news_data.get('content', '')
                     title = news_data.get('title', '')
-                    summary = ai_summarizer.generate_summary(content, description, title)
-                    if summary:
-                        db.update_news_summary(news_id, summary)
-                        logger.debug(f"新闻摘要已更新: ID={news_id}")
+                    summary_result = ai_summarizer.generate_summary(content, description, title)
+                    if summary_result:
+                        # 保存评价和摘要
+                        if summary_result['comment']:
+                            db.update_news_comment(news_id, summary_result['comment'])
+                            logger.debug(f"新闻评价已更新: ID={news_id}")
+                        if summary_result['summary']:
+                            db.update_news_summary(news_id, summary_result['summary'])
+                            logger.debug(f"新闻摘要已更新: ID={news_id}")
+                            # 更新 news_data 中的 ai_summary，以便分类和评分时使用
+                            news_data['ai_summary'] = summary_result['summary']
+                            # 更新 ai_summary 变量，以便后续分类和评分时使用
+                            ai_summary = summary_result['summary']
+                    else:
+                        logger.debug(f"AI摘要生成失败: ID={news_id}")
+                        # 明确设置为None，避免后续误判
+                        news_data['ai_summary'] = None
+                        ai_summary = None
                 except Exception as e:
                     logger.warning(f"AI摘要失败: ID={news_id}, error={e}")
+            
+            # 2. AI分类（使用AI摘要结果）
+            if task_type in ('category', 'all'):
+                # AI分类（按照优先获取AI摘要、抓取摘要、压缩正文、抓取正文、标题的顺序缺省替补）
+                try:
+                    # 按照优先级获取分类输入
+                    classify_input = None
+                    classify_source = None
+                    
+                    # 优先级1：AI摘要（必须不为空）
+                    if ai_summary and ai_summary.strip():
+                        classify_input = ai_summary
+                        classify_source = 'ai_summary'
+                        logger.debug(f"使用AI摘要进行分类: ID={news_id}")
+                    # 优先级2：抓取摘要
+                    elif description and description.strip():
+                        classify_input = description
+                        classify_source = 'description'
+                        logger.debug(f"使用抓取摘要进行分类: ID={news_id}")
+                    # 优先级3：压缩正文
+                    elif compressed_content and compressed_content.strip():
+                        classify_input = compressed_content
+                        classify_source = 'compressed_content'
+                        logger.debug(f"使用压缩正文进行分类: ID={news_id}")
+                    # 优先级4：抓取正文
+                    elif content and content.strip():
+                        classify_input = content
+                        classify_source = 'content'
+                        logger.debug(f"使用抓取正文进行分类: ID={news_id}")
+                    # 优先级5：标题
+                    elif title and title.strip():
+                        classify_input = title
+                        classify_source = 'title'
+                        logger.debug(f"使用标题进行分类: ID={news_id}")
+                    
+                    if classify_input:
+                        classify_result = ai_classifier.classify(title, classify_input, None)
+                        if classify_result:
+                            categories = classify_result.get('categories', [])
+                            keywords = classify_result.get('keywords', [])
+                            
+                            # 如果分类为空，根据关键字命中情况选取合适的分类
+                            if not categories and keywords:
+                                categories = ai_classifier._classify_by_keywords(keywords)
+                                logger.info(f"AI未返回分类，根据关键字命中情况选取分类: ID={news_id}, categories={categories}")
+                            
+                            if categories:
+                                category_str = ','.join(categories)
+                                db.update_news_category(news_id, category_str)
+                                logger.debug(f"新闻分类已更新: ID={news_id}, category={category_str}, source={classify_source}")
+                            
+                            # 保存关键字到数据库
+                            if keywords:
+                                keyword_str = ','.join(keywords)
+                                db.update_news_keywords(news_id, keyword_str)
+                                logger.info(f"新闻关键字已更新: ID={news_id}, keywords={keyword_str}")
+                        else:
+                            logger.debug(f"AI分类返回空结果: ID={news_id}")
+                    else:
+                        logger.debug(f"无分类输入，跳过AI分类: ID={news_id}")
+                except Exception as e:
+                    logger.warning(f"AI分类失败: ID={news_id}, error={e}")
+
+            # AI评分：手动任务（priority=1）或启用评分时执行
+            task_priority = task.get('priority', 0)
+            manual = (task_priority == 1)
+            should_do_score = manual or ai_scorer.enable_scoring
+            
+            logger.debug(f"AI评分检查: ID={news_id}, manual={manual}, enable_scoring={ai_scorer.enable_scoring}, should_do_score={should_do_score}")
+            
+            score_dict = None
+            
+            if should_do_score:
+                try:
+                    # 按照优先级获取评分输入：AI摘要 → 抓取摘要 → 压缩正文 → 抓取正文 → 标题
+                    score_input = news_data.copy()
+                    
+                    # 如果没有AI摘要或AI摘要为空，使用其他输入
+                    if not ai_summary or not ai_summary.strip():
+                        # 优先级2：抓取摘要
+                        if description and description.strip():
+                            score_input['ai_summary'] = description
+                            logger.info(f"使用抓取摘要进行评分: ID={news_id}")
+                        # 优先级3：压缩正文
+                        elif compressed_content and compressed_content.strip():
+                            score_input['ai_summary'] = compressed_content
+                            logger.info(f"使用压缩正文进行评分: ID={news_id}")
+                        # 优先级4：抓取正文
+                        elif content and content.strip():
+                            score_input['ai_summary'] = content
+                            logger.info(f"使用抓取正文进行评分: ID={news_id}")
+                        # 优先级5：标题
+                        elif title and title.strip():
+                            score_input['ai_summary'] = title
+                            logger.info(f"使用标题进行评分: ID={news_id}")
+                        else:
+                            logger.warning(f"无评分输入，跳过AI评分: ID={news_id}")
+                    else:
+                        logger.info(f"使用AI摘要进行评分: ID={news_id}")
+                        score_dict = ai_scorer.score_news(score_input, manual)
+                    
+                    if score_dict is not None:
+                        db.update_news_score(
+                            news_id, 
+                            score_dict['total_score'],
+                            score_dict['topic_relevance'],
+                            score_dict['importance'],
+                            score_dict['ai_feeling'],
+                            score_dict['source_score']
+                        )
+                        logger.info(f"新闻评分已更新: ID={news_id}, score={score_dict['total_score']}")
+                    else:
+                        logger.warning(f"AI评分返回空结果: ID={news_id}")
+                except Exception as e:
+                    logger.warning(f"AI评分失败: ID={news_id}, error={e}")
+            else:
+                logger.info(f"AI评分未启用，跳过评分: ID={news_id}, manual={manual}, enable_scoring={ai_scorer.enable_scoring}")
 
             # 更新AI处理状态
             db.update_news_ai_status(news_id, True)
@@ -354,10 +348,7 @@ class AINewsProcessor:
         return {
             'processing': self.processing,
             'unprocessed_count': unprocessed_count,
-            'max_workers': self.max_workers,
-            'batch_size': self.batch_size,
-            'enable_ai_category': self.enable_ai_category,
-            'enable_ai_summary': self.enable_ai_summary
+            'auto_process': self.auto_process
         }
 
 

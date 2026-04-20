@@ -86,6 +86,7 @@ class AISummarizer(ConfigObserver):
     def __init__(self) -> None:
         self.base_url: str = config.get('ai.base_url', 'http://localhost:1234')
         self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
+        self.api_key: str = config.get('ai.api_key', '')
         self.max_tokens: int = config.get('ai.max_tokens', 4096)
         self.temperature: float = config.get('ai.temperature', 0.7)
         
@@ -116,6 +117,7 @@ class AISummarizer(ConfigObserver):
         ai_config = config.get('ai', {})
         self.base_url = ai_config.get('base_url', 'http://localhost:1234')
         self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
+        self.api_key = ai_config.get('api_key', '')
         self.max_tokens = ai_config.get('max_tokens', 4096)
         self.temperature = ai_config.get('temperature', 0.7)
         self.description_threshold = config.get('ai_summary_threshold', 140)
@@ -128,7 +130,18 @@ class AISummarizer(ConfigObserver):
         # 如果模型改变，重新创建适配器
         self.model_adapter = ModelAdapterFactory.create_adapter(self.model)
 
-    def generate_summary(self, content: str, description: Optional[str] = None, title: Optional[str] = None) -> Optional[str]:
+    def generate_summary(self, content: str, description: Optional[str] = None, title: Optional[str] = None) -> Optional[Dict[str, str]]:
+        """
+        生成AI摘要和评价
+        
+        Args:
+            content: 新闻正文
+            description: 新闻描述
+            title: 新闻标题
+            
+        Returns:
+            包含评价和摘要的字典，格式：{'comment': str, 'summary': str}
+        """
         try:
             # AI摘要始终可以执行（不受配置控制）
             # 配置只影响自动执行，不影响手动调用
@@ -191,10 +204,15 @@ class AISummarizer(ConfigObserver):
             logger.debug(f"AI摘要请求: {self.base_url}/v1/chat/completions")
             logger.debug(f"AI摘要超时设置: {self.timeout}秒")
             
+            headers = {}
+            if self.api_key:
+                headers['Authorization'] = f'Bearer {self.api_key}'
+            
             try:
                 response = requests.post(
                     f"{self.base_url}/v1/chat/completions",
                     json=payload,
+                    headers=headers,
                     timeout=self.timeout
                 )
             except requests.Timeout:
@@ -216,12 +234,15 @@ class AISummarizer(ConfigObserver):
             data = response.json()
             
             # 使用模型适配器提取摘要结果
-            summary = self.model_adapter.extract_summary(data)
+            content_text = self.model_adapter.extract_summary(data)
             
-            if summary:
-                logger.info(f"AI摘要生成成功，长度: {len(summary)}")
-                logger.debug(f"AI摘要内容: {summary[:200]}")
-                return summary
+            if content_text:
+                # 解析评价和摘要
+                result = self._parse_comment_and_summary(content_text)
+                logger.info(f"AI摘要生成成功，评价长度: {len(result['comment'])}, 摘要长度: {len(result['summary'])}")
+                logger.debug(f"AI评价: {result['comment'][:100]}")
+                logger.debug(f"AI摘要: {result['summary'][:200]}")
+                return result
             else:
                 logger.warning("AI摘要返回空结果")
                 return None
@@ -229,6 +250,47 @@ class AISummarizer(ConfigObserver):
         except Exception as e:
             logger.error(f"AI摘要生成失败: {e}")
             return None
+
+    def _parse_comment_and_summary(self, content: str) -> Dict[str, str]:
+        """
+        解析AI返回的内容，分离评价和摘要
+        
+        Args:
+            content: AI返回的完整内容
+            
+        Returns:
+            包含评价和摘要的字典
+        """
+        # 尝试按换行符分割
+        lines = content.strip().split('\n')
+        
+        if len(lines) >= 2:
+            # 第一行是评价，剩余是摘要
+            comment = lines[0].strip()
+            summary = '\n'.join(lines[1:]).strip()
+        else:
+            # 只有一行，尝试按句号分割
+            sentences = content.split('。')
+            if len(sentences) >= 2:
+                comment = sentences[0].strip() + '。'
+                summary = '。'.join(sentences[1:]).strip()
+            else:
+                # 无法分割，全部作为摘要
+                comment = ''
+                summary = content.strip()
+        
+        # 如果评价为空，生成默认评价
+        if not comment:
+            comment = '📰 这是一篇值得关注的新闻'
+        
+        # 如果摘要为空，使用评价作为摘要
+        if not summary:
+            summary = comment
+        
+        return {
+            'comment': comment,
+            'summary': summary
+        }
 
     def _build_summary_prompt(self, content: str) -> str:
         truncated_content = smart_truncate(content, self.max_input_length)
@@ -241,19 +303,21 @@ class AISummarizer(ConfigObserver):
 {truncated_content}
 
 要求：
-1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
-2. 第二部分：准确概括核心内容，简洁明了
+1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受（不超过30字）
+2. 第二部分：准确概括核心内容，简洁明了（接近140字，120-160字之间）
 3. 必须使用中文书写，不能使用全英文
-4. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
+4. 必要的英文术语或专有名词可以保留，但整体必须是中文
+5. 摘要部分要详细一些，确保接近140字"""
         else:
             return f"""请将以下新闻内容改写为简洁摘要：
 
 {truncated_content}
 
 要求：
-1. 准确概括核心内容，简洁明了
+1. 准确概括核心内容，简洁明了（接近140字，120-160字之间）
 2. 必须使用中文书写，不能使用全英文
-3. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
+3. 必要的英文术语或专有名词可以保留，但整体必须是中文
+4. 摘要要详细一些，确保接近140字"""
 
     def _build_rewrite_prompt(self, description: str) -> str:
         truncated_description = smart_truncate(description, self.max_input_length)
@@ -266,19 +330,21 @@ class AISummarizer(ConfigObserver):
 {truncated_description}
 
 要求：
-1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
-2. 第二部分：准确概括核心内容，简洁明了
+1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受（不超过30字）
+2. 第二部分：准确概括核心内容，简洁明了（接近140字，120-160字之间）
 3. 必须使用中文书写，不能使用全英文
-4. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
+4. 必要的英文术语或专有名词可以保留，但整体必须是中文
+5. 摘要部分要详细一些，确保接近140字"""
         else:
             return f"""请将以下新闻描述改写为简洁摘要：
 
 {truncated_description}
 
 要求：
-1. 准确概括核心内容，简洁明了
+1. 准确概括核心内容，简洁明了（接近140字，120-160字之间）
 2. 必须使用中文书写，不能使用全英文
-3. 必要的英文术语或专有名词可以保留，但整体必须是中文"""
+3. 必要的英文术语或专有名词可以保留，但整体必须是中文
+4. 摘要要详细一些，确保接近140字"""
 
     def _build_translate_and_summarize_prompt(self, description: str) -> str:
         """翻译并摘要非中文内容"""
@@ -292,12 +358,13 @@ class AISummarizer(ConfigObserver):
 {truncated_description}
 
 要求：
-1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受
-2. 第二部分：首先翻译为中文，然后改写为简洁摘要
+1. 第一句话：简短点评，包含emoji表情，表达阅读后的感受（不超过30字）
+2. 第二部分：首先翻译为中文，然后改写为简洁摘要（接近140字，120-160字之间）
 3. 准确概括核心内容，简洁明了
 4. 必须使用中文书写，不能使用全英文
 5. 必要的英文术语或专有名词可以保留，但整体必须是中文
-6. 只输出中文摘要，不要包含原文或翻译过程"""
+6. 只输出中文摘要，不要包含原文或翻译过程
+7. 摘要部分要详细一些，确保接近140字"""
         else:
             return f"""请将以下新闻内容翻译为中文，并改写为简洁摘要：
 
@@ -305,11 +372,12 @@ class AISummarizer(ConfigObserver):
 
 要求：
 1. 首先翻译为中文
-2. 然后改写为简洁摘要
+2. 然后改写为简洁摘要（接近140字，120-160字之间）
 3. 准确概括核心内容，简洁明了
 4. 必须使用中文书写，不能使用全英文
 5. 必要的英文术语或专有名词可以保留，但整体必须是中文
-6. 只输出中文摘要，不要包含原文或翻译过程"""
+6. 只输出中文摘要，不要包含原文或翻译过程
+7. 摘要要详细一些，确保接近140字"""
 
     def _build_personality_description(self) -> str:
         if self.comment_stance.get('custom_description', '').strip():

@@ -3,6 +3,7 @@ export interface News {
   title: string
   description: string
   ai_summary?: string
+  ai_comment?: string
   content?: string
   url: string
   source: string
@@ -16,6 +17,12 @@ export interface News {
   image_data?: string
   is_deleted: number
   is_read: number
+  ai_score?: number
+  ai_score_topic_relevance?: number
+  ai_score_importance?: number
+  ai_score_freshness?: number
+  ai_score_source?: number
+  keywords?: string
 }
 
 export interface NewsStats {
