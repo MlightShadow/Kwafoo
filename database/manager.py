@@ -812,6 +812,28 @@ class DatabaseManager:
                        f"主题相关性={topic_relevance}, 重要性={importance}, "
                        f"AI感官分={ai_feeling}, 来源={source_score}")
             
+            # WebSocket广播
+            if self._ws_broadcast_callback:
+                logger.info(f"WebSocket广播回调已设置，准备广播评分更新: ID={news_id}")
+                try:
+                    logger.info(f"准备广播新闻评分更新: ID={news_id}")
+                    self._ws_broadcast_callback({
+                        'type': 'news_updated',
+                        'news_id': news_id,
+                        'updates': {
+                            'ai_score': ai_score,
+                            'ai_score_topic_relevance': topic_relevance,
+                            'ai_score_importance': importance,
+                            'ai_score_freshness': ai_feeling,
+                            'ai_score_source': source_score
+                        }
+                    })
+                    logger.info(f"已发送WebSocket广播: ID={news_id}")
+                except Exception as e:
+                    logger.warning(f"WebSocket广播失败: {e}")
+            else:
+                logger.warning(f"WebSocket广播回调未设置，跳过广播: ID={news_id}")
+            
             return True
             
         except Exception as e:
@@ -842,6 +864,22 @@ class DatabaseManager:
             
             self._connection.commit()
             logger.info(f"新闻AI评价更新成功: ID={news_id}, comment={comment[:50]}...")
+            
+            # WebSocket广播
+            if self._ws_broadcast_callback:
+                logger.info(f"WebSocket广播回调已设置，准备广播评价更新: ID={news_id}")
+                try:
+                    logger.info(f"准备广播新闻评价更新: ID={news_id}")
+                    self._ws_broadcast_callback({
+                        'type': 'news_updated',
+                        'news_id': news_id,
+                        'updates': {'ai_comment': comment}
+                    })
+                    logger.info(f"已发送WebSocket广播: ID={news_id}")
+                except Exception as e:
+                    logger.warning(f"WebSocket广播失败: {e}")
+            else:
+                logger.warning(f"WebSocket广播回调未设置，跳过广播: ID={news_id}")
             
             return True
             

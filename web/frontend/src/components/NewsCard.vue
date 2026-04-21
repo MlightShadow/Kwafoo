@@ -1,10 +1,11 @@
 <template>
-  <div class="news-card" :data-id="news.id" :class="{ 'ai-processing': aiProcessing }">
+  <div class="news-card" :data-id="props.news.id" :class="{ 'ai-processing': aiProcessing }">
+    
     <!-- 图片背景装饰 -->
     <div v-if="showThumbnail && imageUrl" class="news-card-background" :class="imagePositionClass">
       <img 
         :src="imageUrl" 
-        :alt="news.title" 
+        :alt="props.news.title" 
         loading="lazy"
         @error="handleImageError"
         class="background-image"
@@ -17,25 +18,25 @@
       <div class="background-overlay"></div>
     </div>
     
-    <!-- 重新分析按钮 -->
-    <button 
-      @click="handleReanalyze" 
-      class="reanalyze-btn"
-      :disabled="aiProcessing"
-      title="重新分析"
-    >
-      <span v-if="aiProcessing" class="spinner"></span>
-      <span v-else>🔄</span>
-    </button>
-    
     <!-- 主要内容区域 -->
     <div class="news-card-main">
       <div class="news-info">
-        <h3 class="news-title">{{ news.title }}</h3>
-        <div class="news-meta">
+        <h3 
+          class="news-title"
+          :class="{ truncated: titleTruncated }"
+          @mouseenter="handleShowFullTitle" 
+          @mouseleave="showFullTitle = false"
+          ref="titleRef"
+        >{{ props.news.title }}</h3>
+        <div class="news-meta-top">
           <div class="meta-left">
-            <span class="news-source">{{ news.source }}</span>
-            <span class="news-time">{{ formatTime(news.publish_time) }}</span>
+            <span 
+              v-if="props.news.ai_score !== undefined && props.news.ai_score !== null"
+              class="news-score"
+              :class="scoreClass"
+            >
+              🔥 {{ props.news.ai_score.toFixed(1) }}
+            </span>
             <span 
               v-for="(category, index) in categoryList" 
               :key="index"
@@ -44,16 +45,9 @@
             >
               {{ category.name }}
             </span>
-            <span 
-              v-if="news.ai_score !== undefined && news.ai_score !== null"
-              class="news-score"
-              :class="scoreClass"
-            >
-              ⭐ {{ news.ai_score.toFixed(1) }}
-            </span>
           </div>
           <div class="news-actions">
-            <a v-if="news.url" :href="news.url" target="_blank" class="news-link" title="阅读原文">
+            <a v-if="props.news.url" :href="props.news.url" target="_blank" class="news-link" title="阅读原文">
               🔗
             </a>
             <button 
@@ -66,57 +60,93 @@
             <button 
               @click="handleMarkAsRead" 
               class="read-toggle-btn"
-              :class="{ read: news.is_read }"
+              :class="{ read: props.news.is_read }"
               :disabled="markingAsRead"
-              :title="news.is_read ? '标记为未读' : '标记为已读'"
+              :title="props.news.is_read ? '标记为未读' : '标记为已读'"
             >
-              {{ news.is_read ? '✓' : '○' }}
+              {{ props.news.is_read ? '✓' : '○' }}
+            </button>
+            <!-- 重新分析按钮 -->
+            <button 
+              @click="handleReanalyze" 
+              class="reanalyze-btn"
+              :disabled="aiProcessing"
+              title="重新分析"
+            >
+              <span v-if="aiProcessing" class="spinner"></span>
+              <span v-else>🔄</span>
             </button>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- AI评价 -->
-    <div v-if="news.ai_comment" class="news-comment ai-generated">
-      <div class="comment-content">{{ news.ai_comment }}</div>
+    <!-- 合并的AI评论和摘要区域 -->
+    <div class="combined-summary" :class="{ 'has-content': props.news.ai_comment || props.news.ai_summary || props.news.description }">
+      <!-- AI评论部分 -->
+      <div v-if="props.news.ai_comment" class="ai-comment-section">
+        <span class="comment-icon">⭐</span>
+        <span class="comment-content">{{ props.news.ai_comment }}</span>
+      </div>
+      
+      <!-- 分隔线：只有当AI评论和摘要同时存在时才显示 -->
+      <hr v-if="props.news.ai_comment && (props.news.ai_summary || props.news.description)" class="summary-divider">
+      
+      <!-- 摘要部分 -->
+      <div class="summary-section">
+        <div 
+          v-if="props.news.ai_summary"
+          ref="summaryHeaderRef"
+          class="summary-content" 
+          :class="{ truncated: summaryTruncated }"
+          @mouseenter="handleShowOriginalSummary" 
+          @mouseleave="showOriginalSummary = false"
+        >
+          <span class="summary-icon">✨</span>
+          <span class="summary-label">AI摘要：</span>
+          {{ props.news.ai_summary }}
+        </div>
+        <div 
+          v-else-if="props.news.description"
+          ref="descriptionRef"
+          class="summary-content"
+          :class="{ truncated: descriptionTruncated }"
+          @mouseenter="handleShowFullDescription" 
+          @mouseleave="showFullDescription = false"
+        >
+          {{ props.news.description }}
+        </div>
+        <div v-else-if="!props.news.ai_comment" class="summary-placeholder">
+          暂无摘要
+        </div>
+      </div>
     </div>
     
-    <!-- AI摘要或描述 -->
-    <div v-if="news.ai_summary" class="news-summary ai-generated">
-      <div 
-        ref="summaryHeaderRef"
-        class="summary-header" 
-        @mouseenter="handleShowOriginalSummary" 
-        @mouseleave="showOriginalSummary = false"
-      >
-        <span class="summary-icon">✨</span>
-        <span class="summary-label">AI摘要：</span>
-        <span class="summary-content">{{ news.ai_summary }}</span>
-      </div>
-    </div>
-    <div v-else-if="news.description" class="news-description">
-      <div 
-        ref="descriptionRef"
-        class="description-content"
-        @mouseenter="handleShowFullDescription" 
-        @mouseleave="showFullDescription = false"
-      >
-        {{ truncateText(news.description, 140) }}
-      </div>
+    <!-- 新闻来源和时间（移到摘要下方靠右） -->
+    <div class="news-meta-bottom">
+      <span class="news-time-source">{{ formatTime(props.news.publish_time) }}（{{ props.news.source }}）</span>
     </div>
   </div>
 
   <!-- 使用Teleport将tooltip渲染到body下，避免被其他元素遮挡 -->
   <Teleport to="body">
     <div 
+      ref="fullTitleTooltipRef"
+      v-if="showFullTitle" 
+      class="full-title-tooltip"
+      :style="titleTooltipStyle"
+    >
+      <div class="tooltip-header">📰 完整标题</div>
+      <div class="tooltip-content">{{ props.news.title }}</div>
+    </div>
+    <div 
       ref="originalSummaryTooltipRef"
-      v-if="showOriginalSummary && news.description" 
+      v-if="showOriginalSummary && props.news.ai_summary" 
       class="original-summary-tooltip"
       :style="tooltipStyle"
     >
-      <div class="tooltip-header">📄 原文摘要</div>
-      <div class="tooltip-content">{{ news.description }}</div>
+      <div class="tooltip-header">✨ AI摘要</div>
+      <div class="tooltip-content">{{ props.news.ai_summary }}</div>
     </div>
     <div 
       ref="fullDescriptionTooltipRef"
@@ -125,21 +155,21 @@
       :style="descriptionTooltipStyle"
     >
       <div class="tooltip-header">📄 完整摘要</div>
-      <div class="tooltip-content">{{ news.description }}</div>
+      <div class="tooltip-content">{{ props.news.description }}</div>
     </div>
   </Teleport>
 
   <!-- 新闻详情模态框 -->
   <NewsDetailModal 
     :is-open="showDetailModal"
-    :news-id="news.id"
+    :news-id="props.news.id"
     @close="showDetailModal = false"
     ref="detailModalRef"
   />
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick, watch } from 'vue'
+import { computed, ref, nextTick, watch, onMounted } from 'vue'
 import { useNewsStore } from '@/stores/news'
 import { useConfigStore } from '@/stores/config'
 import { api } from '@/api'
@@ -155,84 +185,167 @@ const newsStore = useNewsStore()
 const configStore = useConfigStore()
 const markingAsRead = ref(false)
 const aiProcessing = ref(false)
+const showFullTitle = ref(false)
 const showOriginalSummary = ref(false)
 const showFullDescription = ref(false)
 const showDetailModal = ref(false)
 const imageLoadFailed = ref(false)
+
+// 截断状态
+const titleTruncated = ref(false)
+const summaryTruncated = ref(false)
+const descriptionTruncated = ref(false)
+
+const titleRef = ref<HTMLElement | null>(null)
 const summaryHeaderRef = ref<HTMLElement | null>(null)
 const descriptionRef = ref<HTMLElement | null>(null)
+const fullTitleTooltipRef = ref<HTMLElement | null>(null)
 const originalSummaryTooltipRef = ref<HTMLElement | null>(null)
 const fullDescriptionTooltipRef = ref<HTMLElement | null>(null)
 const detailModalRef = ref<InstanceType<typeof NewsDetailModal> | null>(null)
+const titleTooltipStyle = ref<Record<string, string>>({})
 const tooltipStyle = ref<Record<string, string>>({})
 const descriptionTooltipStyle = ref<Record<string, string>>({})
 
+async function handleShowFullTitle() {
+  // 只有当标题被截断时才显示tooltip
+  if (titleRef.value) {
+    const titleElement = titleRef.value
+    
+    // 更精确的截断检测
+    const isTruncated = titleElement.scrollHeight > titleElement.clientHeight + 5
+    
+    // 调试信息
+    console.log('标题截断检测:', {
+      scrollHeight: titleElement.scrollHeight,
+      clientHeight: titleElement.clientHeight,
+      isTruncated: isTruncated,
+      text: titleElement.textContent
+    })
+    
+    if (isTruncated) {
+      showFullTitle.value = true
+      
+      // 等待tooltip渲染完成
+      await nextTick()
+      
+      // 计算tooltip位置
+      if (fullTitleTooltipRef.value) {
+        const rect = titleElement.getBoundingClientRect()
+        const tooltipRect = fullTitleTooltipRef.value.getBoundingClientRect()
+        const tooltipWidth = tooltipRect.width
+        const tooltipHeight = tooltipRect.height
+        
+        // 计算tooltip位置
+        let top = rect.bottom + 8
+        let left = rect.left
+        
+        // 检查右边界
+        if (left + tooltipWidth > window.innerWidth) {
+          left = window.innerWidth - tooltipWidth - 16
+        }
+        
+        // 检查底部边界
+        if (top + tooltipHeight > window.innerHeight) {
+          top = rect.top - tooltipHeight - 8
+        }
+        
+        titleTooltipStyle.value = {
+          top: `${top}px`,
+          left: `${left}px`,
+          zIndex: '9999'
+        }
+        
+        // 调试信息
+        console.log('标题tooltip位置:', {
+          top: top,
+          left: left,
+          tooltipWidth: tooltipWidth,
+          tooltipHeight: tooltipHeight,
+          windowWidth: window.innerWidth,
+          windowHeight: window.innerHeight
+        })
+      } else {
+        console.log('fullTitleTooltipRef.value 为 null')
+      }
+    } else {
+      console.log('标题未被截断，不显示tooltip')
+    }
+  }
+}
+
 async function handleShowOriginalSummary() {
-  showOriginalSummary.value = true
-  
-  // 等待tooltip渲染完成
-  await nextTick()
-  
-  // 计算tooltip位置
-  if (summaryHeaderRef.value && originalSummaryTooltipRef.value) {
-    const rect = summaryHeaderRef.value.getBoundingClientRect()
-    const tooltipRect = originalSummaryTooltipRef.value.getBoundingClientRect()
-    const tooltipWidth = tooltipRect.width
-    const tooltipHeight = tooltipRect.height
+  // 只有当AI摘要被截断时才显示tooltip
+  if (summaryHeaderRef.value && isTextTruncated(summaryHeaderRef.value)) {
+    showOriginalSummary.value = true
+    
+    // 等待tooltip渲染完成
+    await nextTick()
     
     // 计算tooltip位置
-    let top = rect.bottom + 8
-    let left = rect.left
-    
-    // 检查右边界
-    if (left + tooltipWidth > window.innerWidth) {
-      left = window.innerWidth - tooltipWidth - 16
-    }
-    
-    // 检查底部边界
-    if (top + tooltipHeight > window.innerHeight) {
-      top = rect.top - tooltipHeight - 8
-    }
-    
-    tooltipStyle.value = {
-      top: `${top}px`,
-      left: `${left}px`,
-      zIndex: '9999'
+    if (originalSummaryTooltipRef.value) {
+      const rect = summaryHeaderRef.value.getBoundingClientRect()
+      const tooltipRect = originalSummaryTooltipRef.value.getBoundingClientRect()
+      const tooltipWidth = tooltipRect.width
+      const tooltipHeight = tooltipRect.height
+      
+      // 计算tooltip位置
+      let top = rect.bottom + 8
+      let left = rect.left
+      
+      // 检查右边界
+      if (left + tooltipWidth > window.innerWidth) {
+        left = window.innerWidth - tooltipWidth - 16
+      }
+      
+      // 检查底部边界
+      if (top + tooltipHeight > window.innerHeight) {
+        top = rect.top - tooltipHeight - 8
+      }
+      
+      tooltipStyle.value = {
+        top: `${top}px`,
+        left: `${left}px`,
+        zIndex: '9999'
+      }
     }
   }
 }
 
 async function handleShowFullDescription() {
-  showFullDescription.value = true
-  
-  // 等待tooltip渲染完成
-  await nextTick()
-  
-  // 计算tooltip位置
-  if (descriptionRef.value && fullDescriptionTooltipRef.value) {
-    const rect = descriptionRef.value.getBoundingClientRect()
-    const tooltipRect = fullDescriptionTooltipRef.value.getBoundingClientRect()
-    const tooltipWidth = tooltipRect.width
-    const tooltipHeight = tooltipRect.height
+  // 只有当原文摘要被截断时才显示tooltip
+  if (descriptionRef.value && isTextTruncated(descriptionRef.value)) {
+    showFullDescription.value = true
+    
+    // 等待tooltip渲染完成
+    await nextTick()
     
     // 计算tooltip位置
-    let top = rect.bottom + 8
-    let left = rect.left
-    
-    // 检查右边界
-    if (left + tooltipWidth > window.innerWidth) {
-      left = window.innerWidth - tooltipWidth - 16
-    }
-    
-    // 检查底部边界
-    if (top + tooltipHeight > window.innerHeight) {
-      top = rect.top - tooltipHeight - 8
-    }
-    
-    descriptionTooltipStyle.value = {
-      top: `${top}px`,
-      left: `${left}px`,
-      zIndex: '9999'
+    if (fullDescriptionTooltipRef.value) {
+      const rect = descriptionRef.value.getBoundingClientRect()
+      const tooltipRect = fullDescriptionTooltipRef.value.getBoundingClientRect()
+      const tooltipWidth = tooltipRect.width
+      const tooltipHeight = tooltipRect.height
+      
+      // 计算tooltip位置
+      let top = rect.bottom + 8
+      let left = rect.left
+      
+      // 检查右边界
+      if (left + tooltipWidth > window.innerWidth) {
+        left = window.innerWidth - tooltipWidth - 16
+      }
+      
+      // 检查底部边界
+      if (top + tooltipHeight > window.innerHeight) {
+        top = rect.top - tooltipHeight - 8
+      }
+      
+      descriptionTooltipStyle.value = {
+        top: `${top}px`,
+        left: `${left}px`,
+        zIndex: '9999'
+      }
     }
   }
 }
@@ -355,10 +468,43 @@ function formatTime(timeString?: string): string {
   return date.toLocaleDateString('zh-CN')
 }
 
-function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
+// 截断检测函数
+function isTextTruncated(element: HTMLElement | null): boolean {
+  if (!element) return false
+  return element.scrollHeight > element.clientHeight + 1
 }
+
+// 更新截断状态
+function updateTruncationStatus() {
+  // 检测标题截断
+  if (titleRef.value) {
+    titleTruncated.value = isTextTruncated(titleRef.value)
+  }
+  
+  // 检测AI摘要截断
+  if (summaryHeaderRef.value) {
+    summaryTruncated.value = isTextTruncated(summaryHeaderRef.value)
+  }
+  
+  // 检测原文摘要截断
+  if (descriptionRef.value) {
+    descriptionTruncated.value = isTextTruncated(descriptionRef.value)
+  }
+}
+
+// 组件挂载后更新截断状态
+onMounted(() => {
+  nextTick(() => {
+    updateTruncationStatus()
+  })
+})
+
+// 监听内容变化更新截断状态
+watch(() => [props.news.title, props.news.ai_summary, props.news.description], () => {
+  nextTick(() => {
+    updateTruncationStatus()
+  })
+})
 
 function handleImageError(event: Event) {
   // 标记图片加载失败，imageUrl computed会自动切换到占位图
@@ -392,6 +538,7 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   flex-direction: column;
   position: relative;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  height: 300px; /* 固定高度 */
 }
 
 .news-card:hover {
@@ -452,35 +599,13 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   );
 }
 
-/* 重新分析按钮 */
+/* 重新分析按钮特殊样式 */
 .reanalyze-btn {
-  position: absolute;
-  bottom: 0.75rem;
-  right: 0.75rem;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #e5e7eb;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.3s ease;
-  font-size: 0.75rem;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.news-card:hover .reanalyze-btn {
-  opacity: 1;
+  color: #f59e0b; /* 橙色，与火焰图标呼应 */
 }
 
 .reanalyze-btn:hover {
-  background: white;
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: rgba(245, 158, 11, 0.1); /* 橙色悬停效果 */
 }
 
 .reanalyze-btn:disabled {
@@ -521,27 +646,41 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 
 /* 标题样式 */
 .news-title {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.25rem 0; /* 减小底部间距 */
   font-size: 1rem;
   font-weight: 600;
   color: #1f2937;
   line-height: 1.4;
   overflow: hidden;
-  text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  height: 2.8em; /* 固定两行高度，确保始终占用两行 */
+  cursor: help; /* 添加鼠标悬停提示 */
+  position: relative; /* 确保截断检测正常工作 */
+}
+
+/* 标题截断emoji样式 */
+.news-title.truncated::after {
+  content: "⏬";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: white;
+  padding: 0 0.25rem 0 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
 }
 
 /* 元数据样式 */
-.news-meta {
+.news-meta-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.625rem;
   font-size: 0.75rem;
   color: #6b7280;
+  min-height: 28px; /* 确保有最小高度 */
 }
 
 .meta-left {
@@ -549,6 +688,13 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   gap: 0.375rem;
   flex-wrap: wrap;
   align-items: center;
+  flex: 1;
+}
+
+.news-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .news-category,
@@ -603,12 +749,13 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 
 .news-link,
 .read-toggle-btn,
-.detail-btn {
+.detail-btn,
+.reanalyze-btn {
   padding: 0;
   width: 32px;
   height: 32px;
-  border: none;
-  background: transparent;
+  border: 1px solid #e5e7eb; /* 统一边框 */
+  background: white; /* 统一白色背景 */
   color: #4b5563;
   text-decoration: none;
   border-radius: 6px;
@@ -619,32 +766,34 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* 统一轻微阴影 */
 }
 
 .news-link:hover,
 .read-toggle-btn:hover,
-.detail-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
-  transform: scale(1.05);
+.detail-btn:hover,
+.reanalyze-btn:hover {
+  background: #f9fafb; /* 统一悬停背景色 */
+  border-color: #d1d5db; /* 悬停时边框变深 */
+  transform: translateY(-1px); /* 统一悬停效果 */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
+/* 特殊按钮颜色 */
 .detail-btn {
   color: #667eea;
-}
-
-.detail-btn:hover {
-  background: rgba(102, 126, 234, 0.1);
 }
 
 .read-toggle-btn.read {
   color: #10b981;
 }
 
-.read-toggle-btn.read:hover {
-  background: rgba(16, 185, 129, 0.1);
+.reanalyze-btn {
+  color: #f59e0b; /* 橙色，与火焰图标呼应 */
 }
 
-.read-toggle-btn:disabled {
+.read-toggle-btn:disabled,
+.reanalyze-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -654,90 +803,113 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   background: transparent;
 }
 
-/* AI评价样式 */
-.news-comment {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-left: 3px solid #f59e0b;
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  color: #92400e;
-  line-height: 1.5;
-  position: relative;
-  z-index: 1;
-  margin: 0 1rem 0.5rem 1rem;
+/* AI评论部分样式 */
+.ai-comment-section {
+  display: flex;
+  align-items: center; /* 改为居中对齐 */
+  margin-bottom: 0.15rem; /* 进一步减小间距 */
+  padding: 0;
+  min-height: auto;
 }
 
-.news-comment.ai-generated {
-  font-weight: 500;
+.comment-icon {
+  font-size: 0.875rem;
+  flex-shrink: 0;
+  margin-right: 0.2rem; /* 进一步减小间距 */
 }
 
 .comment-content {
   word-break: break-word;
+  line-height: 1.2; /* 进一步减小行高 */
+  flex: 1;
+  margin: 0;
+  padding: 0;
 }
 
-/* AI摘要样式 */
-.news-summary {
-  padding: 0.625rem 1rem;
-  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-  border-left: 3px solid #10b981;
+/* 合并的AI评论和摘要样式 */
+.combined-summary {
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
   border-radius: 6px;
   font-size: 0.75rem;
-  color: #166534;
+  color: #6b7280;
   line-height: 1.5;
   position: relative;
   z-index: 1;
-  margin: 0 1rem 1rem 1rem;
+  margin: 0 1rem 0.5rem 1rem;
+  height: 140px; /* 增大高度 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.news-summary.ai-generated {
-  font-style: italic;
+/* 分隔线样式 */
+.summary-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 0.1rem 0; /* 进一步减小间距 */
+  opacity: 0.6;
 }
 
-.summary-header {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 0.1875rem;
+/* 摘要部分样式 */
+.summary-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-content {
   cursor: help;
+  word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5; /* 最多显示5行 */
+  -webkit-box-orient: vertical;
+  max-height: 100px; 
   position: relative;
-  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* 摘要截断emoji样式 */
+.summary-content.truncated::after {
+  content: "⏬";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  background: #f9fafb;
+  padding: 0 0.25rem 0 0.5rem;
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
 .summary-icon {
   font-size: 0.875rem;
   flex-shrink: 0;
+  margin-right: 0.25rem;
 }
 
 .summary-label {
   font-weight: 600;
-  color: #166534;
+  color: #10b981;
   flex-shrink: 0;
+  margin-right: 0.25rem;
 }
 
-.summary-content {
-  color: #166534;
-  font-style: italic;
-  word-break: break-word;
-}
-
-/* 描述样式 */
-.news-description {
-  padding: 0.625rem 1rem;
+/* 新闻来源和时间底部样式 */
+.news-meta-bottom {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 1rem 0.5rem 1rem;
   font-size: 0.75rem;
   color: #6b7280;
-  line-height: 1.5;
-  background: #f9fafb;
-  border-radius: 6px;
-  position: relative;
-  z-index: 1;
-  margin: 0 1rem 1rem 1rem;
 }
 
-.description-content {
-  cursor: help;
+.news-time-source {
+  font-weight: 400;
 }
 
 /* Tooltip样式 */
+.full-title-tooltip,
 .original-summary-tooltip,
 .full-description-tooltip {
   position: fixed;
@@ -750,6 +922,7 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   max-width: 400px;
   padding: 0.75rem;
   pointer-events: auto;
+  overflow: hidden; /* 内容过多时自动截断并显示省略号 */
 }
 
 .tooltip-header {
@@ -765,10 +938,21 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
+  max-height: 300px; /* 合理的tooltip内容高度 */
+  overflow: hidden; /* 内容超出时自动截断 */
+  display: -webkit-box;
+  -webkit-line-clamp: 10; /* 最多显示10行，避免过长 */
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .news-card {
+    height: auto; /* 移动端自适应高度 */
+    min-height: 280px;
+  }
+  
   .news-card-main {
     padding: 0.875rem;
   }
@@ -785,6 +969,11 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   .news-link,
   .read-toggle-btn {
     flex: 1;
+  }
+  
+  .news-summary {
+    max-height: 120px; /* 移动端摘要高度稍小 */
+    margin: 0 0.75rem 0.75rem 0.75rem;
   }
 }
 </style>
