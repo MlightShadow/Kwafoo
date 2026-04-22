@@ -8,28 +8,24 @@ url = "https://sspai.com/feed"
 name = "少数派"
 enabled = true
 fetch_days = 2
-score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://36kr.com/feed"
 name = "36氪"
 enabled = true
 fetch_days = 2
-score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://www.ithome.com/rss/"
 name = "IT之家"
 enabled = true
 fetch_days = 2
-score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://www.yystv.cn/rss/feed"
 name = "游戏研究社"
 enabled = true
 fetch_days = 2
-score = 100  # 来源分，默认100
 
 [[news_sources.web]]
 url = ""
@@ -88,24 +84,62 @@ retry_delay = 1.0
 auto_process = false
 
 [ai.scoring]
-# 重要程度判断描述（用于AI判断事件重要性）
+# 重要性描述（用于AI判断新闻重要性）
 importance_description = """
-判断新闻重要程度的标准：
-1. 影响范围：全球性事件 > 国家级事件 > 地区性事件 > 局部事件
-2. 影响程度：重大政策变化 > 重大技术突破 > 重要商业事件 > 一般新闻
-3. 涉及人数：影响数百万人的事件 > 影响数十万人的事件 > 影响数千人的事件
-4. 持续时间：长期影响 > 中期影响 > 短期影响
-5. 用户相关性：直接影响用户所在国家/地区的事件 > 间接影响的事件 > 无影响的事件
+我关注以下方面的新闻：
+1. 科技创新和人工智能发展
+2. 财经市场动态和投资机会
+3. 国际重大事件和外交关系
+4. 政策变化和法规更新
+5. 行业趋势和商业模式创新
 """
 
-# 用户个人信息（用于重要程度判断）
-user_nationality = "中国"  # 国籍
-user_religion = "无"       # 宗教信仰
+# AI感官分描述（用于AI判断新闻阅读价值）
+ai_feeling_description = """
+我喜欢的新闻类型：
+1. 有深度分析和独特观点的新闻
+2. 提供实用信息和解决方案的新闻
+3. 有创新性和前瞻性的新闻
+4. 数据详实、逻辑清晰的新闻
+5. 有启发性和教育意义的新闻
+
+我不喜欢的新闻类型：
+1. 纯粹标题党、内容空洞的新闻
+2. 重复陈旧、缺乏新意的新闻
+3. 偏激极端、缺乏客观性的新闻
+4. 广告性质明显、缺乏价值的新闻
+5. 内容混乱、逻辑不清的新闻
+"""
+
+# 用户兴趣关键词（用于主题相关性评分）
+interest_keywords = ["人工智能", "科技", "财经", "投资", "国际", "政策", "创新"]
+
+# 高可信度来源列表（用于来源可信度评分）
+trusted_sources = ["少数派", "36氪", "IT之家"]
 
 # 评分维度权重
-topic_relevance_weight = 0.4    # 关联度权重（原主题相关性）
-importance_weight = 0.4          # 重要程度权重
-source_weight = 0.2              # 来源分权重
+topic_relevance_weight = 0.4    # 主题相关性权重
+importance_weight = 0.3          # 重要性权重
+ai_feeling_weight = 0.2           # AI感官分权重
+source_weight = 0.1              # 来源可信度权重
+
+[ai.comment_stance]
+# 国籍示例：中国、美国、英国、日本、韩国、德国、法国、俄罗斯等
+nationality = "中国"
+# 性别示例：男、女、其他
+gender = "男"
+# 年龄
+age = "30"
+# 家庭状况示例：未婚、已婚、离异、丧偶
+family_status = "已婚"
+# 收入水平示例：低、中等、高
+income = "低"
+# 健康状况示例：良好、一般、较差
+health_status = "良好"
+# 宗教信仰示例：无、佛教、基督教、伊斯兰教、道教、天主教、犹太教等
+religion = "无"
+# 自定义描述（留空则使用上述配置生成）
+custom_description = ""
 
 [server]
 host = "0.0.0.0"

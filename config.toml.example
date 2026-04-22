@@ -8,1044 +8,1218 @@ url = "https://www.ruanyifeng.com/blog/atom.xml"
 name = "阮一峰的网络日志"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://sspai.com/feed"
 name = "少数派"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://tech.meituan.com/feed"
 name = "美团技术团队"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.ifanr.com/feed"
 name = "爱范儿"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.solidot.org/index.rss"
 name = "奇客Solidot–传递最新科技情报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://blog.codingnow.com/atom.xml"
 name = "云风的 BLOG"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://feed.appinn.com/"
 name = "小众软件"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.appinn.com/feed/"
 name = "小众软件"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://36kr.com/feed"
 name = "36氪"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://wangyurui.com/feed.xml"
 name = "太隐"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://feed.iplaysoft.com/"
 name = "异次元软件世界"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.bboy.app/atom.xml"
 name = "bboysoul的博客"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://rss.huxiu.com/"
 name = "虎嗅"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://feeds.appinn.com/appinns/"
 name = "小众软件"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://tumutanzi.com/feed"
 name = "土木坛子"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://oldj.net/feed"
 name = "oldj's blog"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.ezindie.com/feed/rss.xml"
 name = "让小产品的独立变现更简单 - ezindie.com"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.ithome.com/rss/"
 name = "IT之家"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.decohack.com/feed"
 name = "Decohack"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://www.williamlong.info/rss.xml"
 name = "月光博客"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.36kr.com/feed"
 name = "36氪"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://feeds.appinn.com/appinns"
 name = "小众软件"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.leavesongs.com/feed/"
 name = "离别歌"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.toodaylab.com/feed"
 name = "理想生活实验室"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://www.waerfa.com/feed"
 name = "Mac玩儿法"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/idaily/today"
 name = "iDaily 每日环球视野"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.zhangxinxu.com/wordpress/feed/"
 name = "张鑫旭-鑫空间-鑫生活"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://maxoxo.me/rss/"
 name = "maxOS"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.yystv.cn/rss/feed"
 name = "游戏研究社"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.wyr.me/rss.xml"
 name = "轶哥博客"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://weekly.tw93.fun/rss.xml"
 name = "潮流周刊"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://css-tricks.com/feed/"
 name = "CSS-Tricks"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/zhihu/daily"
 name = "知乎日报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/duhaoshu"
 name = "十点读书"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/luojisw"
 name = "罗辑思维"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/dukuxiaobao"
 name = "读库小报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://free.apprcn.com/feed/"
 name = "反斗限免"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://feed.iplaysoft.com"
 name = "异次元软件世界"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/ssapi/matrix"
 name = "少数派 -- Matrix"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/qnwzwx"
 name = "青年文摘"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/shudanlaile"
 name = "书单来了"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://halfrost.com/rss/"
 name = "Halfrost's Field"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/newscn/whxw"
 name = "新华社新闻_新华网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/infoq/recommend"
 name = "InfoQ 推荐"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://deepzz.com/feed"
 name = "Deepzz's Blog"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/lifeweek"
 name = "三联生活周刊"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://wiki.eryajf.net/rss.xml"
 name = "二丫讲梵"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://tech.meituan.com/feed/"
 name = "美团技术团队"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/fortunechina/shangye"
 name = "商业 - 财富中文网 - FORTUNEChina.com"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://baiyun.me/feed"
 name = "BAI YUN"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/Economist_fans"
 name = "一天一篇经济学人(双语)"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/mittrchina/hot"
 name = "MIT 科技评论 - 本周热榜"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://blog.devtang.com/atom.xml"
 name = "唐巧的博客"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/hbrchinese"
 name = "哈佛商业评论"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://tonybai.com/feed/"
 name = "Tony Bai"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/rfi/cn"
 name = "法广"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://sspai.me/feed"
 name = "少数派"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://elmagnifico.tech/feed.xml"
 name = "elmagnifico"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/fortunechina"
 name = "财富中文网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/wuxiaobopd"
 name = "吴晓波频道"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.changhai.org/feed.xml"
 name = "卢昌海的个人主页"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/cctvnewscenter"
 name = "央视新闻"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/sagacity-mac"
 name = "MacTalk"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/dgjdds"
 name = "东哥解读电商"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/banyuetan-weixin"
 name = "半月谈"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/techread"
 name = "阑夕"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/leiphone"
 name = "雷峰网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/people-daily"
 name = "人民日报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/youshucc"
 name = "有书"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/wallstreetcn"
 name = "华尔街见闻"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/huxiu_com"
 name = "虎嗅网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/yixuejiezazhi"
 name = "医学界"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/36kr"
 name = "36氪"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/tmtpost"
 name = "钛媒体：引领未来商业与生活新知"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/Guokr42"
 name = "果壳网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/fortunechina/keji"
 name = "科技 - 财富中文网 - FORTUNEChina.com"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/DJ00123987"
 name = "洞见"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/liweitan2014"
 name = "利维坦"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/CBNweekly2008"
 name = "第一财经周刊"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/WebNotes"
 name = "小道消息"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/phoenixweekly"
 name = "香港凤凰周刊"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/ifanr"
 name = "爱范儿"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/tancaijing"
 name = "叶檀财经"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/rmrbwx"
 name = "人民日报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/pentitugua"
 name = "喷嚏-70"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/MSRAsia"
 name = "微软研究院AI头条"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/capitalnews"
 name = "长安街知事"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/AI_era"
 name = "新智元"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/banzhuanxiaozu"
 name = "搬砖小组"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/people"
 name = "首页头条--人民网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.phodal.com/blog/feeds/rss/"
 name = "全栈应用开发:精益实践"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/lengjing_qqfinance"
 name = "棱镜"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/xiake_island"
 name = "侠客岛"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/importnew"
 name = "ImportNew"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/infzm/news"
 name = "南方周末-新闻"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/dujinyong6"
 name = "六神磊磊读金庸"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/nytimes/cn"
 name = "纽约时报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/qiyejiagc"
 name = "新经济100人"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/caixinwang"
 name = "财新网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/sspai"
 name = "少数派"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/vistaweek"
 name = "Vista看天下"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/knowyourself2015"
 name = "Knowyourself"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/qqtech"
 name = "腾讯科技"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/mzmojo"
 name = "魔宙"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.joshwcomeau.com/rss.xml"
 name = "Josh Comeau's blog"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/ndgs233"
 name = "脑洞故事板"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://xueqiu.com/hots/topic/rss"
 name = "今日话题 - 雪球"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/gjrwls"
 name = "国家人文历史"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/mao-talk"
 name = "毛有话说"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/ScientificAmerican"
 name = "环球科学"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/hqsbwx"
 name = "环球时报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/delinshe"
 name = "德林社"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/ruancan"
 name = "软餐 - 新鲜软件资讯"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/people_rmw"
 name = "人民网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/nytimes/dual"
 name = "纽约时报双语版"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://taoshu.in/feed.xml"
 name = "涛叔"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/diqiuzhishiju"
 name = "地球知识局"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/qstheory"
 name = "头条 - 求是网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/lixiangdao002"
 name = "理想岛"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/dandureading"
 name = "单读"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/toodaylab"
 name = "理想生活实验室"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/newsxinhua"
 name = "新华网"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/woshipm"
 name = "人人都是产品经理"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/wowjiemian"
 name = "界面"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.tmtpost.com/feed"
 name = "钛媒体：引领未来商业与生活新知"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/dili360"
 name = "中国国家地理"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.dongwm.com/atom.xml"
 name = "小明明s à domicile"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/cctvyscj"
 name = "央视财经"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/thefair2"
 name = "新世相"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/sports_sina"
 name = "新浪体育"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/meigushe"
 name = "美股研究社"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://mantyke.icu/index.xml"
 name = "小球飞鱼"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/yeeyancom"
 name = "译言"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://www.chuapp.com/feed"
 name = "触乐"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/caozsay"
 name = "caoz的梦呓"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/newfortune"
 name = "新财富"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/jjbd21"
 name = "21世纪经济报道"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/bitsea"
 name = "槽边往事"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/thepapernews"
 name = "澎湃新闻"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/Notesman"
 name = "笔记侠"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/guokrpac"
 name = "物种日历"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/theeconomist"
 name = "经济学人"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/zhangjiawei_1983"
 name = "张佳玮写字的地方"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/nanfangzhoumo"
 name = "南方周末"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/sanjieke01"
 name = "三节课"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/aljazeera/news"
 name = "أخبار - آخر أخبار اليوم الجزيرة نت"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/huxiu"
 name = "虎嗅"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.woshipm.com/feed"
 name = "人人都是产品经理"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/jianshu/home"
 name = "简书首页"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/cnbeta"
 name = "cnBeta"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/woshipm/popular"
 name = "热门文章 - 日榜 - 人人都是产品经理"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/guokr/scientific"
 name = "果壳网 科学人"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/ibookreview"
 name = "新京报书评周刊"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/gcores"
 name = "机核"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://www.douban.com/feed/review/book"
 name = "豆瓣最受欢迎的书评"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/IrisMagazine"
 name = "虹膜"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/xueqiujinghua"
 name = "雪球"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/infzm/recommends"
 name = "南方周末-推荐"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "http://feed.williamlong.info/"
 name = "月光博客"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/renwumag1980"
 name = "人物"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/ilianyue"
 name = "连岳"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://antfu.me/feed.xml"
 name = "Anthony Fu"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/gh_10a6b96351a9"
 name = "架构师之路"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/forbes_china"
 name = "福布斯"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/ikanlixiang"
 name = "看理想"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/iceo-com-cn"
 name = "中国企业家杂志"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/nbweekly"
 name = "南都周刊"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/jianshuio"
 name = "简书"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/runliu-pub"
 name = "刘润"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/eeo-com-cn"
 name = "经济观察报"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/DingXiangYiSheng"
 name = "丁香医生"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/appinn"
 name = "小众软件"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/DingXiangMaMi"
 name = "丁香妈妈"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.rss]]
 url = "https://plink.anyfeeder.com/weixin/mingqinghistory"
 name = "历史研习社"
 enabled = false
 fetch_days = 2
+score = 100
 
 [[news_sources.api]]
 url = "https://api.example.com/news"
@@ -1143,23 +1317,33 @@ enable_summary_comment = false
 enable_classifier_reasoning = false
 enable_summarizer_reasoning = false
 
+[ai.scoring]
+# 是否启用AI评分
+enable_scoring = true
+# 评分超时时间（秒）
+timeout = 30
+# 重要程度判断描述（用于AI判断事件重要性）
+importance_description = """
+判断新闻重要程度的标准：
+1. 影响范围：全球性事件 > 国家级事件 > 地区性事件 > 局部事件
+2. 影响程度：重大政策变化 > 重大技术突破 > 重要商业事件 > 一般新闻
+3. 涉及人数：影响数百万人的事件 > 影响数十万人的事件 > 影响数千人的事件
+4. 持续时间：长期影响 > 中期影响 > 短期影响
+5. 用户相关性：直接影响用户所在国家/地区的事件 > 间接影响的事件 > 无影响的事件
+"""
+# 用户个人信息（用于重要程度判断）
+user_nationality = "中国"  # 国籍
+user_religion = "无"       # 宗教信仰
+# 评分维度权重
+topic_relevance_weight = 0.4    # 关联度权重（原主题相关性）
+importance_weight = 0.4          # 重要程度权重
+source_weight = 0.2              # 来源分权重
+
 [ai.comment_stance]
 # 国籍示例：中国、美国、英国、日本、韩国、德国、法国、俄罗斯等
 nationality = "中国"
-# 性别示例：男、女、其他
-gender = "男"
-# 年龄
-age = "30"
-# 家庭状况示例：未婚、已婚、离异、丧偶
-family_status = "已婚"
-# 收入水平示例：低、中等、高
-income = "中等"
-# 健康状况示例：良好、一般、较差
-health_status = "良好"
 # 宗教信仰示例：无、佛教、基督教、伊斯兰教、道教、天主教、犹太教等
 religion = "无"
-# 自定义描述（留空则使用上述配置生成）
-custom_description = ""
 
 [server]
 host = "0.0.0.0"

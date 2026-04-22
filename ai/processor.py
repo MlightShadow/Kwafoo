@@ -3,9 +3,15 @@ from typing import List, Dict, Any, Optional
 from utils.logger import logger
 from utils.helpers import config
 from database import db
+
 from ai.classifier import ai_classifier
+logger.info("ai.classifier导入完成")
+
 from ai.summarizer import ai_summarizer
+logger.info("ai.summarizer导入完成")
+
 from ai.scorer import ai_scorer
+logger.info("ai.scorer导入完成")
 
 
 class AINewsProcessor:
@@ -260,7 +266,6 @@ class AINewsProcessor:
                             score_dict['total_score'],
                             score_dict['topic_relevance'],
                             score_dict['importance'],
-                            score_dict['ai_feeling'],
                             score_dict['source_score']
                         )
                         logger.info(f"新闻评分已更新: ID={news_id}, score={score_dict['total_score']}")

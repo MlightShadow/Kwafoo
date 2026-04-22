@@ -7,10 +7,49 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.logger import logger
 from utils.helpers import config
 from utils.progress import progress_monitor
-from database import db
-from scheduler.scheduler import scheduler
-from web.server import http_server
-from web.websocket import ws_server
+
+print("开始导入database模块...")
+try:
+    from database import db
+    print("database模块导入完成")
+except Exception as e:
+    print(f"database模块导入失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
+
+print("开始导入scheduler模块...")
+try:
+    from scheduler.scheduler import scheduler
+    print("scheduler模块导入完成")
+    print(f"Scheduler实例: {scheduler}")
+except Exception as e:
+    print(f"scheduler模块导入失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
+
+print("开始导入web.server模块...")
+try:
+    from web.server import http_server
+    print("web.server模块导入完成")
+    print(f"HTTPServer实例: {http_server}")
+except Exception as e:
+    print(f"web.server模块导入失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
+
+print("开始导入web.websocket模块...")
+try:
+    from web.websocket import ws_server
+    print("web.websocket模块导入完成")
+    print(f"WebSocketServer实例: {ws_server}")
+except Exception as e:
+    print(f"web.websocket模块导入失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
 
 
 async def start_websocket():

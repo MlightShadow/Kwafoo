@@ -1,37 +1,26 @@
 """
 AI评分器 - 对新闻进行多维度评分
 """
-from litellm import completion
 from typing import Dict, Any, List, Optional
 from utils.logger import logger
 from utils.helpers import config, ConfigObserver
+from ai.ai_client import ai_client, AIRequest
 
 
 class AIScorer(ConfigObserver):
     """AI评分器"""
     
     def __init__(self) -> None:
-        self.base_url: str = config.get('ai.base_url', 'http://localhost:1234')
-        self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
-        self.api_key: str = config.get('ai.api_key', '')
-        self.max_tokens: int = config.get('ai.max_tokens', 4096)
-        self.temperature: float = config.get('ai.temperature', 0.7)
         self.timeout: int = config.get('ai.timeout', 120)
         
         # 评分配置
         self.enable_scoring: bool = config.get('ai.scoring.enable_scoring', False)
         self.importance_description: str = config.get('ai.scoring.importance_description', '')
-        self.interest_keywords: List[str] = config.get('ai.scoring.interest_keywords', [])
-        self.trusted_sources: List[str] = config.get('ai.scoring.trusted_sources', [])
         
         # 评分维度权重
         self.topic_relevance_weight: float = config.get('ai.scoring.topic_relevance_weight', 0.4)
-        self.importance_weight: float = config.get('ai.scoring.importance_weight', 0.3)
-        self.ai_feeling_weight: float = config.get('ai.scoring.ai_feeling_weight', 0.2)
-        self.source_weight: float = config.get('ai.scoring.source_weight', 0.1)
-        
-        # AI感官分配置
-        self.ai_feeling_description: str = config.get('ai.scoring.ai_feeling_description', '')
+        self.importance_weight: float = config.get('ai.scoring.importance_weight', 0.4)
+        self.source_weight: float = config.get('ai.scoring.source_weight', 0.2)
         
         # 注册为配置观察者
         config.add_observer(self)
@@ -45,24 +34,15 @@ class AIScorer(ConfigObserver):
         """
         logger.info("AIScorer配置已更新")
         ai_config = config.get('ai', {})
-        self.base_url = ai_config.get('base_url', 'http://localhost:1234')
-        self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
-        self.api_key = ai_config.get('api_key', '')
-        self.max_tokens = ai_config.get('max_tokens', 4096)
-        self.temperature = ai_config.get('temperature', 0.7)
         self.timeout = ai_config.get('timeout', 120)
         
         # 更新评分配置
         scoring_config = ai_config.get('scoring', {})
         self.enable_scoring = scoring_config.get('enable_scoring', False)
         self.importance_description = scoring_config.get('importance_description', '')
-        self.interest_keywords = scoring_config.get('interest_keywords', [])
-        self.trusted_sources = scoring_config.get('trusted_sources', [])
         self.topic_relevance_weight = scoring_config.get('topic_relevance_weight', 0.4)
-        self.importance_weight = scoring_config.get('importance_weight', 0.3)
-        self.ai_feeling_weight = scoring_config.get('ai_feeling_weight', 0.2)
-        self.source_weight = scoring_config.get('source_weight', 0.1)
-        self.ai_feeling_description = scoring_config.get('ai_feeling_description', '')
+        self.importance_weight = scoring_config.get('importance_weight', 0.4)
+        self.source_weight = scoring_config.get('source_weight', 0.2)
     
     def score_news(self, news_data: Dict[str, Any], manual: bool = False) -> Optional[Dict[str, float]]:
         """
@@ -73,7 +53,7 @@ class AIScorer(ConfigObserver):
             manual: 是否手动触发（手动触发时始终评分）
             
         Returns:
-            评分字典，包含总分和4个维度的分数，如果评分未启用且非手动触发则返回None
+            评分字典，包含总分和3个维度的分数，如果评分未启用且非手动触发则返回None
         """
         if not self.enable_scoring and not manual:
             logger.info("AI评分未启用，跳过评分")
@@ -81,16 +61,14 @@ class AIScorer(ConfigObserver):
         
         try:
             # 计算各维度评分
-            topic_relevance = self._calculate_topic_relevance(news_data)
+            relevance = self._calculate_relevance(news_data)
             importance = self._calculate_importance(news_data)
-            ai_feeling = self._calculate_ai_feeling(news_data)
             source_score = self._calculate_source_score(news_data)
             
             # 综合评分
             total_score = (
-                topic_relevance * self.topic_relevance_weight +
+                relevance * self.topic_relevance_weight +
                 importance * self.importance_weight +
-                ai_feeling * self.ai_feeling_weight +
                 source_score * self.source_weight
             )
             
@@ -99,18 +77,16 @@ class AIScorer(ConfigObserver):
             
             logger.info(
                 f"新闻评分: ID={news_data.get('id')}, "
-                f"主题相关性={topic_relevance:.2f}, "
-                f"重要性={importance:.2f}, "
-                f"AI感官分={ai_feeling:.2f}, "
-                f"来源={source_score:.2f}, "
+                f"关联度={relevance:.2f}, "
+                f"重要程度={importance:.2f}, "
+                f"来源分={source_score:.2f}, "
                 f"总分={total_score:.2f}"
             )
             
             return {
                 'total_score': total_score,
-                'topic_relevance': topic_relevance,
+                'topic_relevance': relevance,  # 保持字段名兼容性
                 'importance': importance,
-                'ai_feeling': ai_feeling,
                 'source_score': source_score
             }
             
@@ -118,50 +94,124 @@ class AIScorer(ConfigObserver):
             logger.error(f"新闻评分失败: ID={news_data.get('id')}, error={e}")
             return None
     
-    def _calculate_topic_relevance(self, news_data: Dict[str, Any]) -> float:
+    def _calculate_relevance(self, news_data: Dict[str, Any]) -> float:
         """
-        计算主题相关性评分（0-100）
+        计算关联度评分（0-100）- AI判断
         
         Args:
             news_data: 新闻数据
             
         Returns:
-            主题相关性评分
+            关联度评分
         """
         try:
             title = news_data.get('title', '')
             summary = news_data.get('ai_summary', '')
             category = news_data.get('category', '')
             
-            # 合并文本
-            text = f"{title} {summary} {category}".lower()
+            # 获取用户兴趣分类
+            interest_categories = self._get_interest_categories()
             
-            # 计算关键词匹配度
-            matched_keywords = 0
-            for keyword in self.interest_keywords:
-                if keyword.lower() in text:
-                    matched_keywords += 1
+            if not interest_categories:
+                return 50.0  # 如果没有配置兴趣分类，给中等分数
             
-            # 计算评分
-            if len(self.interest_keywords) == 0:
-                return 50.0  # 如果没有配置关键词，给中等分数
+            # 构建提示词
+            prompt = self._build_relevance_prompt(title, summary, category, interest_categories)
             
-            score = (matched_keywords / len(self.interest_keywords)) * 100
-            return min(100, score)
+            # 构建系统提示词
+            system_prompt = "你是一个专业的新闻分析师，擅长判断新闻与用户兴趣的关联程度。"
+            
+            # 构建响应Schema
+            response_schema = {
+                "type": "object",
+                "properties": {
+                    "relevance": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "关联度评分"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "评分理由"
+                    }
+                },
+                "required": ["relevance", "reason"]
+            }
+            
+            # 创建AI请求
+            request = AIRequest(
+                task_type='scoring',
+                prompt=prompt,
+                system_prompt=system_prompt,
+                response_schema=response_schema,
+                timeout=self.timeout
+            )
+            
+            # 调用AI客户端
+            response = ai_client.call(request)
+            
+            if not response.success:
+                logger.error(f"AI关联度评分失败: {response.error}")
+                return 50.0
+            
+            # 获取响应数据
+            data = response.data
+            relevance = data.get('relevance', 50.0)
+            
+            # 限制在0-100范围内
+            relevance = max(0, min(100, relevance))
+            
+            logger.debug(f"AI关联度评分: {relevance:.2f}, 理由: {data.get('reason', '')}, 重试次数: {response.retry_count}")
+            return relevance
             
         except Exception as e:
-            logger.error(f"计算主题相关性失败: {e}")
+            logger.error(f"计算关联度失败: {e}")
             return 50.0
+    
+    def _build_relevance_prompt(self, title: str, summary: str, category: str, interest_categories: List[str]) -> str:
+        """
+        构建关联度评分提示词
+        
+        Args:
+            title: 新闻标题
+            summary: 新闻摘要
+            category: 新闻分类
+            interest_categories: 用户兴趣分类列表
+            
+        Returns:
+            提示词
+        """
+        categories_str = '、'.join(interest_categories)
+        
+        return f"""请根据以下标准，判断这条新闻与用户兴趣的关联程度，给出0-100的数字评分。
+
+用户感兴趣的分类：{categories_str}
+
+新闻标题：{title}
+新闻摘要：{summary}
+新闻分类：{category}
+
+评分标准：
+- 90-100分：新闻分类与用户兴趣分类高度匹配，内容与用户兴趣高度相关
+- 70-90分：新闻分类与用户兴趣分类部分匹配，内容与用户兴趣相关
+- 60-70分：新闻分类与用户兴趣分类有一定关联，内容与用户兴趣有一定关系
+- 40-60分：新闻分类与用户兴趣分类关联较弱，内容与用户兴趣关系不大
+- 0-40分：新闻分类与用户兴趣分类不匹配，内容与用户兴趣无关
+
+请同时提供评分理由，说明为什么给出这个分数。
+
+请返回JSON格式，包含relevance（关联度评分）和reason（评分理由）两个字段。"""
     
     def _calculate_importance(self, news_data: Dict[str, Any]) -> float:
         """
-        计算重要性评分（0-100）
+        计算重要程度评分（0-100）- AI判断
         
         Args:
             news_data: 新闻数据
             
         Returns:
-            重要性评分
+            重要程度评分
         """
         try:
             title = news_data.get('title', '')
@@ -173,75 +223,60 @@ class AIScorer(ConfigObserver):
             # 构建提示词
             prompt = self._build_importance_prompt(title, summary)
             
-            # 使用 LiteLLM 调用 AI
-            response = completion(
-                model=f'openai/{self.model}',
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的新闻分析师，擅长判断新闻的重要性。"
+            # 构建系统提示词
+            system_prompt = "你是一个专业的新闻分析师，擅长判断新闻的重要程度。"
+            
+            # 构建响应Schema
+            response_schema = {
+                "type": "object",
+                "properties": {
+                    "importance": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "重要程度评分"
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
+                    "reason": {
+                        "type": "string",
+                        "description": "评分理由"
                     }
-                ],
-                api_base=f"{self.base_url}/v1",
-                api_key=self.api_key if self.api_key else "not-needed",
-                max_tokens=512,
-                temperature=0.3,
+                },
+                "required": ["importance", "reason"]
+            }
+            
+            # 创建AI请求
+            request = AIRequest(
+                task_type='scoring',
+                prompt=prompt,
+                system_prompt=system_prompt,
+                response_schema=response_schema,
                 timeout=self.timeout
-                # 不添加 extra_body，关闭 thinking 模式
             )
             
-            # 统一获取返回内容
-            if not response or not response.choices or len(response.choices) == 0:
-                logger.error(f"AI响应无效: response={response}")
+            # 调用AI客户端
+            response = ai_client.call(request)
+            
+            if not response.success:
+                logger.error(f"AI重要程度评分失败: {response.error}")
                 return 50.0
             
-            message = response.choices[0].message
-            if not message:
-                logger.error(f"AI响应消息为空: message={message}")
-                return 50.0
+            # 获取响应数据
+            data = response.data
+            importance = data.get('importance', 50.0)
             
-            content = message.content
-            # 如果 content 为空，尝试从 reasoning_content 中提取
-            if not content or not content.strip():
-                reasoning_content = getattr(message, 'reasoning_content', None) or message.provider_specific_fields.get('reasoning_content', None)
-                if reasoning_content and reasoning_content.strip():
-                    logger.debug(f"AI返回的content为空，尝试从reasoning_content中提取: {reasoning_content[:200]}...")
-                    # 从 reasoning_content 中提取数字
-                    import re
-                    numbers = re.findall(r'\d+\.?\d*', reasoning_content)
-                    if numbers:
-                        content = numbers[-1]  # 使用最后一个数字
-                        logger.debug(f"从reasoning_content中提取的数字: {content}")
-                    else:
-                        logger.error(f"无法从reasoning_content中提取数字: {reasoning_content}")
-                        return 50.0
-                else:
-                    logger.error(f"AI返回内容为空且reasoning_content也为空: content={content}, message={message}")
-                    return 50.0
+            # 限制在0-100范围内
+            importance = max(0, min(100, importance))
             
-            if not content or not content.strip():
-                logger.error(f"AI返回内容为空: content={content}, message={message}")
-                return 50.0
-            
-            # 解析评分
-            try:
-                score = float(content.strip())
-                return max(0, min(100, score))
-            except (ValueError, IndexError):
-                logger.error(f"AI重要性评分解析失败: content={content}")
-                return 50.0
+            logger.debug(f"AI重要程度评分: {importance:.2f}, 理由: {data.get('reason', '')}, 重试次数: {response.retry_count}")
+            return importance
             
         except Exception as e:
-            logger.error(f"计算重要性失败: {e}")
+            logger.error(f"计算重要程度失败: {e}")
             return 50.0
     
     def _build_importance_prompt(self, title: str, summary: str) -> str:
         """
-        构建重要性评分提示词
+        构建重要程度评分提示词
         
         Args:
             title: 新闻标题
@@ -250,143 +285,40 @@ class AIScorer(ConfigObserver):
         Returns:
             提示词
         """
-        return f"""请根据以下重要性描述，判断这条新闻的重要性，给出0-100的数字评分。
+        # 获取用户信息
+        user_info = self._get_user_info()
+        
+        return f"""请根据以下标准，判断这条新闻的重要程度，给出0-100的数字评分。
 
-重要性描述：
+用户信息：
+- 国籍：{user_info.get('nationality', '未知')}
+- 宗教：{user_info.get('religion', '未知')}
+
 {self.importance_description}
 
 新闻标题：{title}
 新闻摘要：{summary}
 
-请只返回一个0-100的数字评分，不要添加任何其他内容。"""
-    
-    def _calculate_ai_feeling(self, news_data: Dict[str, Any]) -> float:
-        """
-        计算AI感官分（-50到50）
-        
-        Args:
-            news_data: 新闻数据
-            
-        Returns:
-            AI感官分（-50到50，正数表示推荐，负数表示不推荐）
-        """
-        try:
-            title = news_data.get('title', '')
-            summary = news_data.get('ai_summary', '')
-            
-            if not self.ai_feeling_description:
-                return 0.0  # 如果没有配置AI感官分描述，给0分
-            
-            # 构建提示词
-            prompt = self._build_ai_feeling_prompt(title, summary)
-            
-            # 使用 LiteLLM 调用 AI
-            response = completion(
-                model=f'openai/{self.model}',
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的新闻分析师，擅长判断新闻的阅读价值。"
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                api_base=f"{self.base_url}/v1",
-                api_key=self.api_key if self.api_key else "not-needed",
-                max_tokens=512,
-                temperature=0.3,
-                timeout=self.timeout
-                # 不添加 extra_body，关闭 thinking 模式
-            )
-            
-            # 统一获取返回内容
-            if not response or not response.choices or len(response.choices) == 0:
-                logger.error(f"AI响应无效: response={response}")
-                return 50.0
-            
-            message = response.choices[0].message
-            if not message:
-                logger.error(f"AI响应消息为空: message={message}")
-                return 50.0
-            
-            content = message.content
-            # 如果 content 为空，尝试从 reasoning_content 中提取
-            if not content or not content.strip():
-                reasoning_content = getattr(message, 'reasoning_content', None) or message.provider_specific_fields.get('reasoning_content', None)
-                if reasoning_content and reasoning_content.strip():
-                    logger.debug(f"AI返回的content为空，尝试从reasoning_content中提取: {reasoning_content[:200]}...")
-                    # 从 reasoning_content 中提取数字
-                    import re
-                    numbers = re.findall(r'-?\d+\.?\d*', reasoning_content)
-                    if numbers:
-                        content = numbers[-1]  # 使用最后一个数字
-                        logger.debug(f"从reasoning_content中提取的数字: {content}")
-                    else:
-                        logger.error(f"无法从reasoning_content中提取数字: {reasoning_content}")
-                        return 50.0
-                else:
-                    logger.error(f"AI返回内容为空且reasoning_content也为空: content={content}, message={message}")
-                    return 50.0
-            
-            if not content or not content.strip():
-                logger.error(f"AI返回内容为空: content={content}, message={message}")
-                return 50.0
-            
-            # 解析评分
-            try:
-                score = float(content.strip())
-                # 限制在-50到50范围内
-                score = max(-50, min(50, score))
-                # 转换为0-100范围（-50到50 -> 0到100）
-                normalized_score = score + 50
-                return normalized_score
-            except (ValueError, IndexError):
-                logger.error(f"AI感官分评分解析失败: content={content}")
-                return 50.0  # 解析失败，给中等分数
-            
-        except Exception as e:
-            logger.error(f"计算AI感官分失败: {e}")
-            return 50.0
-    
-    def _build_ai_feeling_prompt(self, title: str, summary: str) -> str:
-        """
-        构建AI感官分提示词
-        
-        Args:
-            title: 新闻标题
-            summary: 新闻摘要
-            
-        Returns:
-            提示词
-        """
-        return f"""请根据以下阅读偏好描述，判断这条新闻的阅读价值，给出-50到50的数字评分。
-
-阅读偏好描述：
-{self.ai_feeling_description}
-
-新闻标题：{title}
-新闻摘要：{summary}
-
 评分标准：
-- 50分：强烈推荐阅读，非常符合阅读偏好
-- 25分：推荐阅读，比较符合阅读偏好
-- 0分：一般，不推荐也不反对
-- -25分：不推荐阅读，不太符合阅读偏好
-- -50分：强烈不推荐阅读，完全不符合阅读偏好
+- 90-100分：全球性重大事件，影响范围极广，涉及人数众多，长期影响深远
+- 80-90分：国家级重大事件，影响范围广，涉及人数多，中期影响明显
+- 70-80分：地区性重要事件，影响范围中等，涉及人数较多，有一定影响
+- 60-70分：局部重要事件，影响范围有限，涉及人数一般，影响较小
+- 0-60分：一般新闻，影响范围小，涉及人数少，影响有限
 
-请只返回一个-50到50的数字评分，不要添加任何其他内容。"""
+请同时提供评分理由，说明为什么给出这个分数。
+
+请返回JSON格式，包含importance（重要程度评分）和reason（评分理由）两个字段。"""
     
     def _calculate_source_score(self, news_data: Dict[str, Any]) -> float:
         """
-        计算来源可信度评分（0-100）
+        计算来源分（0-100）- 从配置读取
         
         Args:
             news_data: 新闻数据
             
         Returns:
-            来源可信度评分
+            来源分
         """
         try:
             source = news_data.get('source', '')
@@ -394,18 +326,84 @@ class AIScorer(ConfigObserver):
             if not source:
                 return 50.0  # 如果没有来源信息，给中等分数
             
-            if not self.trusted_sources:
-                return 50.0  # 如果没有配置可信来源，给中等分数
+            # 从新闻源配置中读取来源分
+            source_score = self._get_source_score_from_config(source)
             
-            # 检查是否在可信来源列表中
-            if source in self.trusted_sources:
-                return 100.0
-            else:
-                return 50.0  # 不在可信来源列表中，给中等分数
+            if source_score is None:
+                return 100.0  # 如果没有配置来源分，默认100分
+            
+            logger.debug(f"来源分: source={source}, score={source_score}")
+            return source_score
             
         except Exception as e:
-            logger.error(f"计算来源可信度失败: {e}")
+            logger.error(f"计算来源分失败: {e}")
             return 50.0
+    
+    def _get_source_score_from_config(self, source: str) -> Optional[float]:
+        """
+        从配置中获取来源分
+        
+        Args:
+            source: 来源名称
+            
+        Returns:
+            来源分，如果未配置则返回None
+        """
+        try:
+            # 搜索RSS源
+            rss_sources = config.get('news_sources.rss', [])
+            for rss_source in rss_sources:
+                if rss_source.get('name') == source:
+                    return rss_source.get('score', 100.0)
+            
+            # 搜索API源
+            api_sources = config.get('news_sources.api', [])
+            for api_source in api_sources:
+                if api_source.get('name') == source:
+                    return api_source.get('score', 100.0)
+            
+            # 搜索Web源
+            web_sources = config.get('news_sources.web', [])
+            for web_source in web_sources:
+                if web_source.get('name') == source:
+                    return web_source.get('score', 100.0)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"获取来源分配置失败: {e}")
+            return None
+    
+    def _get_interest_categories(self) -> List[str]:
+        """
+        获取用户兴趣分类列表
+        
+        Returns:
+            用户兴趣分类列表
+        """
+        try:
+            categories_config = config.get('categories', [])
+            return [cat.get('name', '') for cat in categories_config]
+        except Exception as e:
+            logger.error(f"获取兴趣分类失败: {e}")
+            return []
+    
+    def _get_user_info(self) -> Dict[str, str]:
+        """
+        获取用户信息
+        
+        Returns:
+            用户信息字典
+        """
+        try:
+            scoring_config = config.get('ai.scoring', {})
+            return {
+                'nationality': scoring_config.get('user_nationality', '未知'),
+                'religion': scoring_config.get('user_religion', '未知')
+            }
+        except Exception as e:
+            logger.error(f"获取用户信息失败: {e}")
+            return {}
 
 
 ai_scorer = AIScorer()

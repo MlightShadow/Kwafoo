@@ -10,10 +10,8 @@ from utils.logger import logger
 from utils.helpers import config
 from utils.progress import progress_monitor
 from database import db
-from ai.processor import ai_news_processor
 from rag.engine import rag_engine
 from web.api import news_api, ai_api, chat_api, config_api, system_api, report_api
-
 
 _SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
 _DIST_DIR = os.path.join(_SERVER_DIR, 'dist')
@@ -247,7 +245,7 @@ class HTTPServerManager:
             logger.warning("HTTP服务器已在运行")
             return
         
-        # 注册所有API路由
+        # 立即注册路由
         self._register_routes()
         
         host = config.get('server.host', '0.0.0.0')
@@ -261,7 +259,7 @@ class HTTPServerManager:
 
     def _register_routes(self):
         """注册所有API路由"""
-        # GET路由（装饰器已经处理了参数验证，直接传递方法）
+        # GET路由
         router.register_get('/api/news', news_api.get_news)
         router.register_get('/api/news/category', news_api.get_news_by_category)
         router.register_get('/api/news/search', news_api.search_news)

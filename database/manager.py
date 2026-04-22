@@ -278,10 +278,27 @@ class DatabaseManager:
                 cursor.execute("ALTER TABLE news ADD COLUMN ai_score_importance FLOAT")
                 logger.info("数据库迁移：添加 ai_score_importance 字段")
             
-            # 添加 ai_score_freshness 字段（新鲜度）
-            if 'ai_score_freshness' not in columns:
-                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_freshness FLOAT")
-                logger.info("数据库迁移：添加 ai_score_freshness 字段")
+            # 移除 ai_score_freshness 字段（SQLite不支持直接删除列，需要重建表）
+            if 'ai_score_freshness' in columns:
+                logger.info("数据库迁移：移除 ai_score_freshness 字段")
+                cursor.execute('''
+                    CREATE TABLE news_new AS
+                    SELECT id, title, description, ai_summary, content, url, source, source_url,
+                           category, publish_time, fetch_time, is_visible, ai_processed,
+                           image_url, image_data, is_deleted, is_read,
+                           compressed_content, keywords, ai_comment, ai_score,
+                           ai_score_topic_relevance, ai_score_importance, ai_score_source
+                    FROM news
+                ''')
+                cursor.execute('DROP TABLE news')
+                cursor.execute('ALTER TABLE news_new RENAME TO news')
+                logger.info("数据库迁移完成：已重建news表")
+                # 重建表后，重新创建索引
+                self._create_indexes()
+                self._create_fts_table()
+                # 重新获取列信息
+                cursor.execute("PRAGMA table_info(news)")
+                columns = [row[1] for row in cursor.fetchall()]
             
             # 添加 ai_score_source 字段（来源可信度）
             if 'ai_score_source' not in columns:
@@ -761,16 +778,14 @@ class DatabaseManager:
     def update_news_score(self, news_id: int, ai_score: float, 
                         topic_relevance: float = None,
                         importance: float = None,
-                        ai_feeling: float = None,
                         source_score: float = None) -> bool:
         """更新新闻AI评分
         
         Args:
             news_id: 新闻ID
             ai_score: AI评分（总分）
-            topic_relevance: 主题相关性评分
-            importance: 重要性评分
-            ai_feeling: AI感官分（推荐/不推荐）
+            topic_relevance: 关联度评分
+            importance: 重要程度评分
             source_score: 来源可信度评分
             
         Returns:
@@ -791,10 +806,6 @@ class DatabaseManager:
                 update_fields.append("ai_score_importance = ?")
                 params.append(importance)
             
-            if ai_feeling is not None:
-                update_fields.append("ai_score_freshness = ?")
-                params.append(ai_feeling)
-            
             if source_score is not None:
                 update_fields.append("ai_score_source = ?")
                 params.append(source_score)
@@ -809,8 +820,8 @@ class DatabaseManager:
             
             self._connection.commit()
             logger.info(f"新闻评分更新成功: ID={news_id}, score={ai_score}, "
-                       f"主题相关性={topic_relevance}, 重要性={importance}, "
-                       f"AI感官分={ai_feeling}, 来源={source_score}")
+                       f"关联度={topic_relevance}, 重要程度={importance}, "
+                       f"来源={source_score}")
             
             # WebSocket广播
             if self._ws_broadcast_callback:
@@ -824,7 +835,6 @@ class DatabaseManager:
                             'ai_score': ai_score,
                             'ai_score_topic_relevance': topic_relevance,
                             'ai_score_importance': importance,
-                            'ai_score_freshness': ai_feeling,
                             'ai_score_source': source_score
                         }
                     })
@@ -1088,7 +1098,6 @@ class DatabaseManager:
                     ai_score = NULL,
                     ai_score_topic_relevance = NULL,
                     ai_score_importance = NULL,
-                    ai_score_freshness = NULL,
                     ai_score_source = NULL
                 WHERE id = ?
             ''', (news_id,))

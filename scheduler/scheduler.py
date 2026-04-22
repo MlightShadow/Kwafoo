@@ -8,10 +8,19 @@ from utils.logger import logger
 from utils.helpers import config, ConfigObserver
 from utils.progress import progress_monitor
 from database import db
+
+logger.info("开始导入fetcher模块...")
 from fetcher.rss_fetcher import rss_fetcher
+logger.info("rss_fetcher导入完成")
+
 from fetcher.api_fetcher import api_fetcher
+logger.info("api_fetcher导入完成")
+
 from fetcher.web_fetcher import web_fetcher
+logger.info("web_fetcher导入完成")
+
 from ai.processor import ai_news_processor
+logger.info("ai_news_processor导入完成")
 
 
 class FetchResult(NamedTuple):
@@ -391,5 +400,5 @@ class Scheduler(ConfigObserver):
             logger.error(f"[{task_id}] AI处理异常: {e}")
             progress_monitor.complete_task(task_id, False, str(e))
 
-
+# 全局调度器实例
 scheduler = Scheduler()
