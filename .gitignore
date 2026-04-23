@@ -64,3 +64,4 @@ Thumbs.db
 /.tasks
 /data/images
 /.pytest_cache
+/data
