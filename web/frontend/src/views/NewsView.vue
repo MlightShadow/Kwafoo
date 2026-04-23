@@ -1,34 +1,5 @@
 <template>
   <div class="news-view">
-    <div class="news-header">
-      <h2>{{ currentCategoryName }}</h2>
-      <div class="news-tabs">
-        <button 
-          :class="['tab-btn', { active: currentTab === 'all' }]"
-          @click="handleTabChange('all')"
-        >
-          全部
-        </button>
-        <button 
-          :class="['tab-btn', { active: currentTab === 'unread' }]"
-          @click="handleTabChange('unread')"
-        >
-          未读
-        </button>
-        <button 
-          :class="['tab-btn', { active: currentTab === 'read' }]"
-          @click="handleTabChange('read')"
-        >
-          已读
-        </button>
-      </div>
-      <div class="news-stats">
-        <span>{{ totalCount }} 条新闻</span>
-        <span>已加载: {{ displayedCount }}</span>
-        <span>最后更新: {{ lastUpdateTime }}</span>
-      </div>
-    </div>
-
     <div v-if="loading && displayedCount === 0" class="loading">
       加载中...
     </div>
@@ -70,33 +41,19 @@ const newsStore = useNewsStore()
 const configStore = useConfigStore()
 
 const lastUpdateTime = ref<string>(new Date().toLocaleString('zh-CN'))
-const currentTab = ref<'all' | 'unread' | 'read'>('all')
 const currentPage = ref(0)
 const pageSize = ref(30)
 const loadingMore = ref(false)
 const hasMore = ref(true)
 
 const filteredNews = computed(() => {
-  let news = newsStore.newsList
-  
-  if (currentTab.value === 'unread') {
-    news = news.filter(n => !n.is_read)
-  } else if (currentTab.value === 'read') {
-    news = news.filter(n => n.is_read)
-  }
-  
-  return news
+  return newsStore.newsList
 })
 
 const loading = computed(() => newsStore.loading)
 const error = computed(() => newsStore.error)
 const totalCount = computed(() => newsStore.newsCount)
 const displayedCount = computed(() => filteredNews.value.length)
-const currentCategoryName = computed(() => {
-  const tabName = currentTab.value === 'all' ? '全部' : (currentTab.value === 'unread' ? '未读' : '已读')
-  const category = newsStore.currentCategory || '全部'
-  return `${category} - ${tabName}`
-})
 
 async function loadMoreNews() {
   if (loadingMore.value || !hasMore.value) return
@@ -137,40 +94,6 @@ async function loadMoreNews() {
   }
 }
 
-async function handleTabChange(tab: 'all' | 'unread' | 'read') {
-  currentTab.value = tab
-  currentPage.value = 0
-  hasMore.value = true
-  
-  if (tab === 'unread') {
-    try {
-      loading.value = true
-      const response = await api.getUnreadNews(100)
-      newsStore.newsList = response.data.data
-      hasMore.value = false
-    } catch (error) {
-      console.error('获取未读新闻失败:', error)
-    } finally {
-      loading.value = false
-    }
-  } else if (tab === 'read') {
-    try {
-      loading.value = true
-      const response = await api.getReadNews(100)
-      newsStore.newsList = response.data.data
-      hasMore.value = false
-    } catch (error) {
-      console.error('获取已读新闻失败:', error)
-    } finally {
-      loading.value = false
-    }
-  } else {
-    await newsStore.loadNews(newsStore.currentCategory)
-    currentPage.value = 0
-    hasMore.value = true
-  }
-}
-
 function handleScroll() {
   const scrollTop = window.scrollY
   const windowHeight = window.innerHeight
@@ -206,6 +129,7 @@ onUnmounted(() => {
 <style scoped>
 .news-view {
   width: 100%;
+  max-width: 100%;
 }
 
 .news-header {
@@ -222,33 +146,6 @@ onUnmounted(() => {
   color: #333;
 }
 
-.news-tabs {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.tab-btn {
-  padding: 0.5rem 1rem;
-  border: 1px solid #e0e0e0;
-  background: white;
-  color: #666;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.9rem;
-}
-
-.tab-btn:hover {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.tab-btn.active {
-  background: #007bff;
-  color: white;
-  border-color: #007bff;
-}
-
 .news-stats {
   display: flex;
   gap: 1rem;
@@ -263,6 +160,10 @@ onUnmounted(() => {
   padding: 3rem;
   font-size: 1.2rem;
   color: #666;
+}
+
+.error {
+  color: #dc3545;
 }
 
 .error {

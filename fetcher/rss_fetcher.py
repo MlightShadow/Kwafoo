@@ -158,26 +158,87 @@ class RSSFetcher:
         1. media:content 标签
         2. enclosure 标签
         3. description 中的 img 标签
+        4. og:image meta标签（如果有的话）
         """
         # 1. 检查 media:content
         if hasattr(entry, 'media_content') and entry.media_content:
             for media in entry.media_content:
                 if media.get('type', '').startswith('image/'):
-                    return media.get('url')
+                    url = media.get('url', '').strip()
+                    if url:
+                        return self._clean_url(url)
         
         # 2. 检查 enclosure
         if hasattr(entry, 'enclosures') and entry.enclosures:
             for enclosure in entry.enclosures:
                 if enclosure.get('type', '').startswith('image/'):
-                    return enclosure.get('href')
+                    url = enclosure.get('href', '').strip()
+                    if url:
+                        return self._clean_url(url)
         
         # 3. 从 description 中提取
         if description:
-            img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', description, re.IGNORECASE)
-            if img_match:
-                return img_match.group(1)
+            # 尝试多种img标签模式
+            patterns = [
+                r'<img[^>]+src=["\']([^"\']+)["\']',  # 标准img标签
+                r'<img[^>]+src=([^\s>]+)',  # 无引号的src
+                r'"image":"([^"]+)"',  # JSON格式的图片URL
+                r'"url":"([^"]+\.(?:jpg|jpeg|png|gif|webp)[^"]*)"',  # 图片文件URL
+            ]
+            
+            for pattern in patterns:
+                img_match = re.search(pattern, description, re.IGNORECASE)
+                if img_match:
+                    url = img_match.group(1).strip()
+                    # 移除可能的查询参数和片段
+                    url = re.sub(r'[?#].*$', '', url)
+                    if url and self._is_valid_image_url(url):
+                        return self._clean_url(url)
         
         return None
+    
+    def _clean_url(self, url: str) -> str:
+        """清理URL"""
+        # 移除空格
+        url = url.strip()
+        
+        # 处理协议相对URL
+        if url.startswith('//'):
+            return 'https:' + url
+        
+        # 移除HTML实体
+        url = url.replace('&amp;', '&').replace('&#38;', '&')
+        
+        return url
+    
+    def _is_valid_image_url(self, url: str) -> bool:
+        """验证是否为有效的图片URL"""
+        # 跳过data URI
+        if url.startswith('data:'):
+            return False
+        
+        # 跳过空URL
+        if not url or url == 'about:blank':
+            return False
+        
+        # 检查是否为HTTP/HTTPS URL
+        if not url.startswith(('http://', 'https://')):
+            return False
+        
+        # 检查文件扩展名
+        image_extensions = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg')
+        lower_url = url.lower()
+        
+        # 如果URL包含图片扩展名，直接返回True
+        if any(lower_url.endswith(ext) for ext in image_extensions):
+            return True
+        
+        # 如果URL包含image关键词，也认为可能是图片
+        image_keywords = ('image', 'img', 'photo', 'picture', 'thumb', 'cover', 'avatar')
+        if any(keyword in lower_url for keyword in image_keywords):
+            return True
+        
+        return False
 
 
 rss_fetcher = RSSFetcher()

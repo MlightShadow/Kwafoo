@@ -477,7 +477,19 @@ class DatabaseManager:
                 # 下载并压缩图片
                 result = image_processor.fetch_and_process_image(image_url)
                 if result:
-                    image_url, image_data = result
+                    new_image_url, new_image_data = result
+                    # 如果image_url被更新为本地路径，说明下载成功
+                    if new_image_url != image_url:
+                        image_url = new_image_url
+                        # 文件系统模式下，不存储image_data（因为图片在文件系统中）
+                        if image_processor.storage_mode == 'filesystem':
+                            image_data = None
+                        else:
+                            image_data = new_image_data
+                    else:
+                        # 下载失败或使用原始URL，不存储image_data
+                        image_url = None
+                        image_data = None
             
             # 获取北京时间
             fetch_time = self._get_beijing_time()
@@ -529,7 +541,7 @@ class DatabaseManager:
                     UPDATE news SET
                         title = ?,
                         description = ?,
-                        ai_summary = ?,
+                        ai_summary = NULL,
                         content = ?,
                         compressed_content = ?,
                         source = ?,
@@ -539,6 +551,14 @@ class DatabaseManager:
                         is_visible = ?,
                         is_deleted = 0,
                         is_read = 0,
+                        ai_comment = NULL,
+                        ai_score = NULL,
+                        ai_score_topic_relevance = NULL,
+                        ai_score_importance = NULL,
+                        ai_score_source = NULL,
+                        ai_score_topic_relevance_reason = NULL,
+                        ai_score_importance_reason = NULL,
+                        ai_score_source_reason = NULL,
                         image_url = ?,
                         image_data = ?,
                         fetch_time = ?
@@ -546,7 +566,6 @@ class DatabaseManager:
                 ''', (
                     news_data.get('title'),
                     news_data.get('description'),
-                    news_data.get('ai_summary'),
                     news_data.get('content'),
                     news_data.get('compressed_content'),
                     news_data.get('source'),

@@ -7,35 +7,35 @@ path = "data/kwafoo.db"  # 数据库文件路径
 url = "https://sspai.com/feed"  # RSS订阅地址
 name = "少数派"  # 来源名称
 enabled = true  # 是否启用
-fetch_days = 2  # 抓取最近几天的新闻
+fetch_days = 1  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://36kr.com/feed"  # RSS订阅地址
 name = "36氪"  # 来源名称
 enabled = true  # 是否启用
-fetch_days = 2  # 抓取最近几天的新闻
+fetch_days = 1  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://www.ithome.com/rss/"  # RSS订阅地址
 name = "IT之家"  # 来源名称
 enabled = true  # 是否启用
-fetch_days = 2  # 抓取最近几天的新闻
+fetch_days = 1  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://www.yystv.cn/rss/feed"  # RSS订阅地址
 name = "游戏研究社"  # 来源名称
 enabled = true  # 是否启用
-fetch_days = 2  # 抓取最近几天的新闻
+fetch_days = 1  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
 url = "https://api.newshacker.me/rss"  # RSS订阅地址
 name = "NewsHacker"  # 来源名称
 enabled = true  # 是否启用
-fetch_days = 2  # 抓取最近几天的新闻
+fetch_days = 1  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.web]]

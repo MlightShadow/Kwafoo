@@ -1,14 +1,11 @@
 <template>
   <div class="app-container">
     <header class="app-header">
-      <div class="container">
-        <h1>📰 Kwafoo 新闻聚合</h1>
-        <p class="subtitle">夸父追日，永不止步</p>
-      </div>
-    </header>
-
-    <div class="top-nav">
-      <div class="container">
+      <div class="container header-content">
+        <div class="header-left">
+          <h1>📰 Kwafoo</h1>
+        </div>
+        
         <nav class="main-nav">
           <router-link to="/" class="nav-link" active-class="active">
             📰 新闻
@@ -24,30 +21,26 @@
           </router-link>
         </nav>
         
-        <div class="search-section">
-          <input 
-            v-model="searchQuery" 
-            type="text" 
-            placeholder="搜索新闻..." 
-            class="search-input"
-            @keypress.enter="handleSearch"
-          >
-          <button @click="handleSearch" class="search-btn">🔍</button>
-        </div>
-        
-        <div class="status-section">
-          <div class="server-status" :class="{ online: isServerOnline, offline: !isServerOnline }">
-            {{ isServerOnline ? '在线' : '离线' }}
+        <div class="header-right">
+          <div class="search-section">
+            <input 
+              v-model="searchQuery" 
+              type="text" 
+              placeholder="搜索..." 
+              class="search-input"
+              @keypress.enter="handleSearch"
+            >
+            <button @click="handleSearch" class="search-btn">🔍</button>
           </div>
-          <div class="system-status">
-            <span v-if="runningTasks.length > 0" class="status-running">
-              ⏳ {{ runningTasks.map(t => t.name).join(', ') }}
-            </span>
-            <span v-else class="status-idle">✅ 系统运行正常</span>
+          
+          <div class="status-section">
+            <div class="server-status" :class="{ online: isServerOnline, offline: !isServerOnline }">
+              {{ isServerOnline ? '在线' : '离线' }}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </header>
 
     <main class="container main-content">
       <aside v-if="showSidebar" class="sidebar">
@@ -246,21 +239,113 @@ body {
 .app-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 2.5rem 0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 0.75rem 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
-.app-header h1 {
-  font-size: 2.25rem;
-  margin-bottom: 0.5rem;
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.header-left h1 {
+  font-size: 1.5rem;
+  margin: 0;
   font-weight: 700;
   letter-spacing: -0.025em;
 }
 
-.subtitle {
-  opacity: 0.95;
-  font-size: 1.125rem;
-  font-weight: 300;
+.main-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.nav-link.active {
+  background: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.search-section {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-input {
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  width: 180px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.search-input:focus {
+  outline: none;
+  background: white;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.search-btn {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.search-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.status-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.server-status {
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.server-status.online {
+  background: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.server-status.offline {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
 }
 
 .container {
@@ -269,141 +354,27 @@ body {
   padding: 0 1rem;
 }
 
-.top-nav {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #e5e7eb;
-  padding: 1rem 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-.top-nav .container {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-}
-
-.main-nav {
-  display: flex;
-  gap: 1rem;
-}
-
-.nav-link {
-  padding: 0.75rem 1.5rem;
-  color: #4b5563;
-  text-decoration: none;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  font-weight: 600;
-}
-
-.nav-link:hover {
-  background: #f3f4f6;
-  color: #667eea;
-}
-
-.nav-link.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.search-section {
-  flex: 1;
-  display: flex;
-  gap: 0.5rem;
-}
-
-.search-input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: all 0.2s ease;
-  background: white;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.search-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.search-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.status-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  min-width: 200px;
-}
-
-.server-status {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.server-status.online {
-  background: #d4edda;
-  color: #155724;
-}
-
-.server-status.offline {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.system-status {
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-.status-running {
-  color: #667eea;
-  font-weight: 500;
-}
-
-.status-idle {
-  color: #10b981;
-}
-
 .main-content {
   display: flex;
-  gap: 2rem;
-  padding: 2rem 1rem;
+  padding: 2rem 1rem 2rem 220px;
   flex: 1;
 }
 
 .sidebar {
   flex: 0 0 280px;
-  position: sticky;
-  top: 6rem;
-  height: calc(100vh - 8rem);
+  position: fixed;
+  top: 4rem;
+  left: 0;
+  height: calc(100vh - 4rem);
   overflow-y: auto;
+  padding: 1rem;
+  background: white;
+  border-right: 1px solid #e5e7eb;
 }
 
 .content {
   flex: 1;
+  width: 100%;
 }
 
 .chat-fab {
@@ -484,5 +455,25 @@ body {
 .close-button {
   background: #6b7280;
   color: white;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: relative;
+    top: 0;
+    left: 0;
+    height: auto;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .content {
+    margin-left: 0;
+  }
+  
+  .main-content {
+    padding: 2rem 1rem;
+  }
 }
 </style>

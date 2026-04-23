@@ -1,20 +1,17 @@
 <template>
   <div class="news-card" :data-id="props.news.id" :class="{ 'ai-processing': aiProcessing }">
     
-    <!-- 图片背景装饰 -->
-    <div v-if="showThumbnail && imageUrl" class="news-card-background" :class="imagePositionClass">
+    <!-- 背景装饰（图片或分类颜色） -->
+    <div class="news-card-background" :class="backgroundClass" :style="backgroundStyle">
       <img 
+        v-if="showThumbnail && imageUrl"
         :src="imageUrl" 
         :alt="props.news.title" 
         loading="lazy"
         @error="handleImageError"
         class="background-image"
       >
-      <div class="background-overlay"></div>
-    </div>
-    
-    <!-- 分类颜色背景（无图片时） -->
-    <div v-else class="news-card-background category-background" :style="categoryBackgroundStyle">
+      <div v-if="!showThumbnail" class="category-emoji">{{ categoryEmoji }}</div>
       <div class="background-overlay"></div>
     </div>
     
@@ -351,27 +348,46 @@ async function handleShowFullDescription() {
 }
 
 const showThumbnail = computed(() => {
+  // 只有当图片已下载到本地时才显示缩略图
   return configStore.config?.image_display?.show_thumbnail !== false && 
-         (props.news.image_data || props.news.image_url)
+         (props.news.image_url?.startsWith('/api/images/') || props.news.image_data)
 })
 
-const imagePositionClass = computed(() => {
-  const position = configStore.config?.image_display?.position || 'left'
-  return `position-${position}`
+const backgroundClass = computed(() => {
+  if (showThumbnail.value) {
+    const position = configStore.config?.image_display?.position || 'left'
+    return `position-${position}`
+  }
+  return 'category-background'
 })
 
-const categoryBackgroundStyle = computed(() => {
+const backgroundStyle = computed(() => {
+  if (!showThumbnail.value) {
+    const category = props.news.category || '未分类'
+    const categories = category.split(',')
+    const firstCategory = categories[0].trim()
+    
+    // 从数组中查找对应的分类配置
+    const categoryConfig = newsStore.categories.find(cat => cat.name === firstCategory)
+    const color = categoryConfig?.color || '#95a5a6'
+    
+    return {
+      background: color
+    }
+  }
+  return {}
+})
+
+const categoryEmoji = computed(() => {
   const category = props.news.category || '未分类'
   const categories = category.split(',')
   const firstCategory = categories[0].trim()
   
   // 从数组中查找对应的分类配置
   const categoryConfig = newsStore.categories.find(cat => cat.name === firstCategory)
-  const color = categoryConfig?.color || '#95a5a6'
+  const icon = categoryConfig?.icon || '📰'
   
-  return {
-    background: color
-  }
+  return icon
 })
 
 async function handleMarkAsRead() {
@@ -421,10 +437,17 @@ const imageUrl = computed(() => {
     return null
   }
   
+  // 优先使用本地URL（文件系统模式）
+  if (props.news.image_url && props.news.image_url.startsWith('/api/images/')) {
+    return props.news.image_url
+  }
+  
+  // 使用base64编码的图片数据
   if (props.news.image_data) {
     return `data:image/jpeg;base64,${props.news.image_data}`
   }
-  return props.news.image_url || null
+  
+  return null
 })
 
 const categoryList = computed(() => {
@@ -576,10 +599,21 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   opacity: 0.15;
 }
 
+.category-emoji {
+  position: absolute;
+  top: 40%;
+  left: 70%;
+  transform: translate(-50%, -50%);
+  font-size: 21rem;
+  opacity: 0.8;
+  z-index: 0;
+  user-select: none;
+}
+
 .background-image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   opacity: 0.25;
   filter: blur(1px);
 }
@@ -646,8 +680,8 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 
 /* 标题样式 */
 .news-title {
-  margin: 0 0 0.25rem 0; /* 减小底部间距 */
-  font-size: 1rem;
+  margin: 0 0 0.25rem 0;
+  font-size: 1.125rem;
   font-weight: 600;
   color: #1f2937;
   line-height: 1.4;
@@ -655,9 +689,9 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  height: 2.8em; /* 固定两行高度，确保始终占用两行 */
-  cursor: help; /* 添加鼠标悬停提示 */
-  position: relative; /* 确保截断检测正常工作 */
+  height: 2.8em;
+  cursor: help;
+  position: relative;
 }
 
 /* 标题截断emoji样式 */
@@ -678,9 +712,9 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   color: #6b7280;
-  min-height: 28px; /* 确保有最小高度 */
+  min-height: 28px;
 }
 
 .meta-left {
@@ -829,7 +863,7 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 /* 合并的AI评论和摘要样式 */
 .combined-summary {
   padding: 0.75rem 1rem;
-  background: #f9fafb;
+  background: rgba(249, 250, 251, 0.5);
   border-radius: 6px;
   font-size: 0.75rem;
   color: #6b7280;
@@ -837,7 +871,7 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   position: relative;
   z-index: 1;
   margin: 0 1rem 0.5rem 1rem;
-  height: 140px; /* 增大高度 */
+  height: 140px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -922,26 +956,26 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
   max-width: 400px;
   padding: 0.75rem;
   pointer-events: auto;
-  overflow: hidden; /* 内容过多时自动截断并显示省略号 */
+  overflow: hidden;
 }
 
 .tooltip-header {
   font-weight: 600;
   color: #1f2937;
   margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .tooltip-content {
   color: #6b7280;
-  font-size: 0.875rem;
+  font-size: 1rem;
   line-height: 1.5;
   white-space: pre-wrap;
   word-wrap: break-word;
-  max-height: 300px; /* 合理的tooltip内容高度 */
-  overflow: hidden; /* 内容超出时自动截断 */
+  max-height: 300px;
+  overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 10; /* 最多显示10行，避免过长 */
+  -webkit-line-clamp: 10;
   -webkit-box-orient: vertical;
   text-overflow: ellipsis;
 }
