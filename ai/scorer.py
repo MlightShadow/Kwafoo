@@ -43,6 +43,13 @@ class AIScorer(ConfigObserver):
         self.topic_relevance_weight = scoring_config.get('topic_relevance_weight', 0.4)
         self.importance_weight = scoring_config.get('importance_weight', 0.4)
         self.source_weight = scoring_config.get('source_weight', 0.2)
+        
+        # 更新兴趣关键字配置
+        interest_keywords = scoring_config.get('interest_keywords', [])
+        if interest_keywords:
+            logger.info(f"兴趣关键字已更新: {interest_keywords}")
+        else:
+            logger.info("兴趣关键字已清空，将对所有新闻感兴趣")
     
     def score_news(self, news_data: Dict[str, Any], manual: bool = False) -> Optional[Dict[str, float]]:
         """
@@ -107,19 +114,22 @@ class AIScorer(ConfigObserver):
         try:
             title = news_data.get('title', '')
             summary = news_data.get('ai_summary', '')
+            content = news_data.get('content', '')
             category = news_data.get('category', '')
             
-            # 获取用户兴趣分类
-            interest_categories = self._get_interest_categories()
+            # 获取用户兴趣关键字
+            interest_keywords = self._get_interest_keywords()
             
-            if not interest_categories:
-                return 50.0  # 如果没有配置兴趣分类，给中等分数
+            # 如果没有兴趣关键字，根据内容质量评分
+            if not interest_keywords:
+                logger.info("没有配置兴趣关键字，根据内容质量评分")
+                return self._calculate_content_quality_score(title, summary, content, category)
             
-            # 构建提示词
-            prompt = self._build_relevance_prompt(title, summary, category, interest_categories)
+            # 构建提示词，让AI分析关键字命中情况
+            prompt = self._build_keyword_match_prompt(title, summary, content, category, interest_keywords)
             
             # 构建系统提示词
-            system_prompt = "你是一个专业的新闻分析师，擅长判断新闻与用户兴趣的关联程度。"
+            system_prompt = "你是一个专业的新闻分析师，擅长分析新闻内容与用户兴趣关键字的匹配程度。"
             
             # 构建响应Schema
             response_schema = {
@@ -131,12 +141,23 @@ class AIScorer(ConfigObserver):
                         "maximum": 100,
                         "description": "关联度评分"
                     },
+                    "matched_keywords": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "命中的兴趣关键字列表"
+                    },
+                    "match_details": {
+                        "type": "string",
+                        "description": "关键字命中详细分析"
+                    },
                     "reason": {
                         "type": "string",
                         "description": "评分理由"
                     }
                 },
-                "required": ["relevance", "reason"]
+                "required": ["relevance", "matched_keywords", "match_details", "reason"]
             }
             
             # 创建AI请求
@@ -158,50 +179,151 @@ class AIScorer(ConfigObserver):
             # 获取响应数据
             data = response.data
             relevance = data.get('relevance', 50.0)
+            matched_keywords = data.get('matched_keywords', [])
+            match_details = data.get('match_details', '')
             
             # 限制在0-100范围内
             relevance = max(0, min(100, relevance))
             
-            logger.debug(f"AI关联度评分: {relevance:.2f}, 理由: {data.get('reason', '')}, 重试次数: {response.retry_count}")
+            logger.info(f"AI关联度评分: {relevance:.2f}, 命中关键字: {matched_keywords}, 命中详情: {match_details}, 评分理由: {data.get('reason', '')}")
             return relevance
             
         except Exception as e:
             logger.error(f"计算关联度失败: {e}")
             return 50.0
     
-    def _build_relevance_prompt(self, title: str, summary: str, category: str, interest_categories: List[str]) -> str:
+    def _build_keyword_match_prompt(self, title: str, summary: str, content: str, category: str, interest_keywords: List[str]) -> str:
         """
-        构建关联度评分提示词
+        构建关键字匹配评分提示词
         
         Args:
             title: 新闻标题
             summary: 新闻摘要
+            content: 新闻内容
             category: 新闻分类
-            interest_categories: 用户兴趣分类列表
+            interest_keywords: 用户兴趣关键字列表
             
         Returns:
             提示词
         """
-        categories_str = '、'.join(interest_categories)
+        keywords_str = '、'.join(interest_keywords)
         
-        return f"""请根据以下标准，判断这条新闻与用户兴趣的关联程度，给出0-100的数字评分。
+        # 截取内容的前1000个字符，避免过长
+        content_preview = content[:1000] if content else ""
+        
+        return f"""请根据以下标准，分析这条新闻与用户兴趣关键字的匹配程度，给出0-100的数字评分。
 
-用户感兴趣的分类：{categories_str}
+用户兴趣关键字：{keywords_str}
 
 新闻标题：{title}
 新闻摘要：{summary}
 新闻分类：{category}
+新闻内容：{content_preview}
+
+任务要求：
+1. 仔细分析新闻的标题、摘要和内容
+2. 找出所有命中用户兴趣关键字的地方
+3. 分析关键字的命中程度（是标题命中、摘要命中、还是内容命中）
+4. 评估关键字命中的相关性和重要性
+5. 给出综合的关联度评分
 
 评分标准：
-- 90-100分：新闻分类与用户兴趣分类高度匹配，内容与用户兴趣高度相关
-- 70-90分：新闻分类与用户兴趣分类部分匹配，内容与用户兴趣相关
-- 60-70分：新闻分类与用户兴趣分类有一定关联，内容与用户兴趣有一定关系
-- 40-60分：新闻分类与用户兴趣分类关联较弱，内容与用户兴趣关系不大
-- 0-40分：新闻分类与用户兴趣分类不匹配，内容与用户兴趣无关
+- 90-100分：标题命中多个关键字，或命中关键字且与新闻主题高度相关
+- 70-90分：标题命中1-2个关键字，或摘要命中多个关键字
+- 60-70分：摘要命中关键字，或内容中多次命中关键字
+- 40-60分：内容中命中少量关键字，或命中程度较弱
+- 0-40分：没有命中任何关键字，或命中程度非常弱
 
-请同时提供评分理由，说明为什么给出这个分数。
+请返回：
+1. matched_keywords：命中的关键字列表（按重要性排序）
+2. match_details：详细说明每个关键字在新闻中的命中位置和程度
+3. reason：综合评分理由
+4. relevance：0-100的关联度评分"""
+    
+    def _calculate_content_quality_score(self, title: str, summary: str, content: str, category: str) -> float:
+        """
+        计算内容质量评分（当没有配置兴趣关键字时使用）
+        
+        Args:
+            title: 新闻标题
+            summary: 新闻摘要
+            content: 新闻内容
+            category: 新闻分类
+            
+        Returns:
+            内容质量评分
+        """
+        try:
+            # 截取内容的前1000个字符
+            content_preview = content[:1000] if content else ""
+            
+            # 构建提示词
+            prompt = f"""请根据以下标准，判断这条新闻的质量和价值，给出0-100的数字评分。
 
-请返回JSON格式，包含relevance（关联度评分）和reason（评分理由）两个字段。"""
+新闻标题：{title}
+新闻摘要：{summary}
+新闻分类：{category}
+新闻内容：{content_preview}
+
+评分标准：
+- 90-100分：新闻内容重要、有价值、信息量大、时效性强
+- 70-90分：新闻内容有价值、信息量适中、有一定时效性
+- 60-70分：新闻内容一般、信息量一般、时效性一般
+- 40-60分：新闻内容较少、信息量有限、时效性较弱
+- 0-40分：新闻内容质量差、信息量少、时效性差
+
+请同时提供评分理由，说明为什么给出这个分数。"""
+            
+            # 构建系统提示词
+            system_prompt = "你是一个专业的新闻分析师，擅长判断新闻的质量和价值。"
+            
+            # 构建响应Schema
+            response_schema = {
+                "type": "object",
+                "properties": {
+                    "quality": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "内容质量评分"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "评分理由"
+                    }
+                },
+                "required": ["quality", "reason"]
+            }
+            
+            # 创建AI请求
+            request = AIRequest(
+                task_type='scoring',
+                prompt=prompt,
+                system_prompt=system_prompt,
+                response_schema=response_schema,
+                timeout=self.timeout
+            )
+            
+            # 调用AI客户端
+            response = ai_client.call(request)
+            
+            if not response.success:
+                logger.error(f"AI内容质量评分失败: {response.error}")
+                return 50.0
+            
+            # 获取响应数据
+            data = response.data
+            quality = data.get('quality', 50.0)
+            
+            # 限制在0-100范围内
+            quality = max(0, min(100, quality))
+            
+            logger.info(f"AI内容质量评分: {quality:.2f}, 评分理由: {data.get('reason', '')}")
+            return quality
+            
+        except Exception as e:
+            logger.error(f"计算内容质量失败: {e}")
+            return 50.0
     
     def _calculate_importance(self, news_data: Dict[str, Any]) -> float:
         """
@@ -374,18 +496,28 @@ class AIScorer(ConfigObserver):
             logger.error(f"获取来源分配置失败: {e}")
             return None
     
-    def _get_interest_categories(self) -> List[str]:
+    def _get_interest_keywords(self) -> List[str]:
         """
-        获取用户兴趣分类列表
+        获取用户兴趣关键字列表
         
         Returns:
-            用户兴趣分类列表
+            用户兴趣关键字列表
         """
         try:
-            categories_config = config.get('categories', [])
-            return [cat.get('name', '') for cat in categories_config]
+            # 从配置中获取用户指定的兴趣关键字
+            interest_keywords = config.get('ai.scoring.interest_keywords', [])
+            
+            # 如果配置了兴趣关键字，直接返回
+            if interest_keywords:
+                logger.info(f"使用配置的兴趣关键字: {interest_keywords}")
+                return interest_keywords
+            
+            # 如果没有配置兴趣关键字，则对所有新闻都感兴趣
+            logger.info("未配置兴趣关键字，对所有新闻都感兴趣")
+            return []
+            
         except Exception as e:
-            logger.error(f"获取兴趣分类失败: {e}")
+            logger.error(f"获取兴趣关键字失败: {e}")
             return []
     
     def _get_user_info(self) -> Dict[str, str]:

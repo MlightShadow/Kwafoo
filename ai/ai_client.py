@@ -88,8 +88,8 @@ class AIClient(ConfigObserver):
     
     def __init__(self):
         """初始化AI客户端"""
-        self.base_url: str = config.get('ai.base_url', 'http://localhost:1234')
-        self.model: str = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
+        self.base_url: str = config.get('ai.base_url')
+        self.model: str = config.get('ai.model')
         self.api_key: str = config.get('ai.api_key', '')
         self.max_tokens: int = config.get('ai.max_tokens', 4096)
         self.temperature: float = config.get('ai.temperature', 0.7)
@@ -119,8 +119,8 @@ class AIClient(ConfigObserver):
         """
         logger.info("AIClient配置已更新")
         ai_config = config.get('ai', {})
-        self.base_url = ai_config.get('base_url', 'http://localhost:1234')
-        self.model = ai_config.get('model', 'nvidia/nemotron-3-nano-4b')
+        self.base_url = ai_config.get('base_url')
+        self.model = ai_config.get('model')
         self.api_key = ai_config.get('api_key', '')
         self.max_tokens = ai_config.get('max_tokens', 4096)
         self.temperature = ai_config.get('temperature', 0.7)

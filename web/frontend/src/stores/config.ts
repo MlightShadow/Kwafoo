@@ -4,7 +4,7 @@ import type { Config } from '@/types/config'
 import { api } from '@/api'
 
 export const useConfigStore = defineStore('config', () => {
-  const config = ref<Config | null>(null)
+  const config = ref<any | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 

@@ -281,8 +281,10 @@ class DatabaseManager:
             # 移除 ai_score_freshness 字段（SQLite不支持直接删除列，需要重建表）
             if 'ai_score_freshness' in columns:
                 logger.info("数据库迁移：移除 ai_score_freshness 字段")
+                
+                # 备份数据
                 cursor.execute('''
-                    CREATE TABLE news_new AS
+                    CREATE TABLE news_backup AS
                     SELECT id, title, description, ai_summary, content, url, source, source_url,
                            category, publish_time, fetch_time, is_visible, ai_processed,
                            image_url, image_data, is_deleted, is_read,
@@ -290,8 +292,60 @@ class DatabaseManager:
                            ai_score_topic_relevance, ai_score_importance, ai_score_source
                     FROM news
                 ''')
+                
+                # 删除旧表
                 cursor.execute('DROP TABLE news')
-                cursor.execute('ALTER TABLE news_new RENAME TO news')
+                
+                # 创建新表（包含正确的约束）
+                cursor.execute('''
+                    CREATE TABLE news (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        ai_summary TEXT,
+                        content TEXT,
+                        url TEXT UNIQUE,
+                        source TEXT NOT NULL,
+                        source_url TEXT,
+                        category TEXT,
+                        publish_time DATETIME,
+                        fetch_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        is_visible BOOLEAN DEFAULT 1,
+                        ai_processed BOOLEAN DEFAULT 0,
+                        image_url TEXT,
+                        image_data BLOB,
+                        is_deleted BOOLEAN DEFAULT 0,
+                        is_read BOOLEAN DEFAULT 0,
+                        compressed_content TEXT,
+                        keywords TEXT,
+                        ai_comment TEXT,
+                        ai_score REAL,
+                        ai_score_topic_relevance REAL,
+                        ai_score_importance REAL,
+                        ai_score_source REAL
+                    )
+                ''')
+                
+                # 恢复数据
+                cursor.execute('''
+                    INSERT INTO news (
+                        id, title, description, ai_summary, content, url, source, source_url,
+                        category, publish_time, fetch_time, is_visible, ai_processed,
+                        image_url, image_data, is_deleted, is_read,
+                        compressed_content, keywords, ai_comment, ai_score,
+                        ai_score_topic_relevance, ai_score_importance, ai_score_source
+                    )
+                    SELECT id, title, description, ai_summary, content, url, source, source_url,
+                           category, publish_time, fetch_time, is_visible, ai_processed,
+                           image_url, image_data, is_deleted, is_read,
+                           compressed_content, keywords, ai_comment, ai_score,
+                           ai_score_topic_relevance, ai_score_importance, ai_score_source
+                    FROM news_backup
+                ''')
+                
+                # 删除备份表
+                cursor.execute('DROP TABLE news_backup')
+                
                 logger.info("数据库迁移完成：已重建news表")
                 # 重建表后，重新创建索引
                 self._create_indexes()
@@ -314,6 +368,17 @@ class DatabaseManager:
             if 'keywords' not in columns:
                 cursor.execute("ALTER TABLE news ADD COLUMN keywords TEXT")
                 logger.info("数据库迁移：添加 keywords 字段")
+            
+            # 修复 NULL 值：将 is_deleted 和 is_read 的 NULL 值更新为 0
+            cursor.execute("UPDATE news SET is_deleted = 0 WHERE is_deleted IS NULL")
+            affected_deleted = cursor.rowcount
+            if affected_deleted > 0:
+                logger.info(f"数据库迁移：修复 {affected_deleted} 条新闻的 is_deleted NULL 值")
+            
+            cursor.execute("UPDATE news SET is_read = 0 WHERE is_read IS NULL")
+            affected_read = cursor.rowcount
+            if affected_read > 0:
+                logger.info(f"数据库迁移：修复 {affected_read} 条新闻的 is_read NULL 值")
             
             self._connection.commit()
             
@@ -401,8 +466,8 @@ class DatabaseManager:
             cursor.execute('''
                 INSERT INTO news (
                     title, description, ai_summary, content, compressed_content, url, 
-                    source, source_url, category, publish_time, is_visible, image_url, image_data, fetch_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source, source_url, category, publish_time, is_visible, is_deleted, is_read, image_url, image_data, fetch_time
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 news_data.get('title'),
                 news_data.get('description'),
@@ -415,6 +480,8 @@ class DatabaseManager:
                 news_data.get('category'),
                 news_data.get('publish_time'),
                 news_data.get('is_visible', 1),
+                news_data.get('is_deleted', 0),
+                news_data.get('is_read', 0),
                 image_url,
                 image_data,
                 fetch_time
@@ -451,9 +518,10 @@ class DatabaseManager:
                         category = ?,
                         publish_time = ?,
                         is_visible = ?,
+                        is_deleted = 0,
+                        is_read = 0,
                         image_url = ?,
                         image_data = ?,
-                        is_deleted = 0,
                         fetch_time = ?
                     WHERE id = ?
                 ''', (

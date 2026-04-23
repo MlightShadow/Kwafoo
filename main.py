@@ -75,6 +75,22 @@ def main():
         logger.info("Kwafoo 新闻聚合系统启动")
         logger.info("=" * 50)
         
+        # 检查AI配置
+        logger.info("检查AI配置...")
+        ai_base_url = config.get('ai.base_url')
+        ai_model = config.get('ai.model')
+        
+        if not ai_base_url:
+            logger.error("AI服务地址未配置！请在config.toml中设置ai.base_url")
+            return
+        
+        if not ai_model:
+            logger.error("AI模型未配置！请在config.toml中设置ai.model")
+            logger.error("例如：model = \"google/gemma-4-e4b\" 或 model = \"nvidia/nemotron-3-nano-4b\"")
+            return
+        
+        logger.info(f"AI配置检查通过：base_url={ai_base_url}, model={ai_model}")
+        
         logger.info("初始化数据库...")
         db.create_tables()
         

@@ -1,78 +1,78 @@
 [database]
-path = "data/kwafoo.db"
+path = "data/kwafoo.db"  # 数据库文件路径
 
-[news_sources]
+[news_sources]  # 新闻源配置
 
 [[news_sources.rss]]
-url = "https://sspai.com/feed"
-name = "少数派"
-enabled = true
-fetch_days = 2
+url = "https://sspai.com/feed"  # RSS订阅地址
+name = "少数派"  # 来源名称
+enabled = true  # 是否启用
+fetch_days = 2  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
-url = "https://36kr.com/feed"
-name = "36氪"
-enabled = true
-fetch_days = 2
+url = "https://36kr.com/feed"  # RSS订阅地址
+name = "36氪"  # 来源名称
+enabled = true  # 是否启用
+fetch_days = 2  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
-url = "https://www.ithome.com/rss/"
-name = "IT之家"
-enabled = true
-fetch_days = 2
+url = "https://www.ithome.com/rss/"  # RSS订阅地址
+name = "IT之家"  # 来源名称
+enabled = true  # 是否启用
+fetch_days = 2  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.rss]]
-url = "https://www.yystv.cn/rss/feed"
-name = "游戏研究社"
-enabled = true
-fetch_days = 2
+url = "https://www.yystv.cn/rss/feed"  # RSS订阅地址
+name = "游戏研究社"  # 来源名称
+enabled = true  # 是否启用
+fetch_days = 2  # 抓取最近几天的新闻
 score = 100  # 来源分，默认100
 
 [[news_sources.web]]
-url = ""
-name = ""
-enabled = false
+url = ""  # 网站首页URL
+name = ""  # 网站名称
+enabled = false  # 是否启用
 
-[news_sources.web.selectors]
-container = "div.news-list"
-title = "h2.news-title"
-content = "div.news-content"
-link = "a.news-link"
-time = "span.news-time"
+[news_sources.web.selectors]  # 网站抓取选择器配置
+container = "div.news-list"  # 新闻列表容器选择器
+title = "h2.news-title"  # 标题选择器
+content = "div.news-content"  # 内容选择器
+link = "a.news-link"  # 链接选择器
+time = "span.news-time"  # 时间选择器
 
-[scheduler]
-fetch_interval = 1800
-ai_process_interval = 600
-auto_fetch = false
-auto_ai_process = false
-auto_ai_after_fetch = false
-max_fetch_workers = 20
+[scheduler]  # 调度器配置
+fetch_interval = 1800  # 自动抓取间隔（秒）
+ai_process_interval = 600  # AI处理间隔（秒）
+auto_fetch = false  # 是否自动抓取
+auto_ai_process = false  # 是否自动AI处理
+auto_ai_after_fetch = false  # 抓取后是否自动AI处理
+max_fetch_workers = 20  # 最大抓取并发数
 
-[network]
-enable_proxy = false
-proxy_url = ""
+[network]  # 网络配置
+enable_proxy = false  # 是否启用代理
+proxy_url = ""  # 代理地址
 
-[image]
-enable_fetch = true
-storage_mode = "filesystem"
-storage_path = "data/images"
+[image]  # 图片配置
+enable_fetch = true  # 是否抓取图片
+storage_mode = "filesystem"  # 存储模式
+storage_path = "data/images"  # 存储路径
 
-[ai]
-base_url = "http://localhost:1234"
-model = "nvidia/nemotron-3-nano-4b"
-api_key = ""
-max_tokens = 4096
-temperature = 0.7
-max_workers = 1
-batch_size = 1
-max_input_length = 2000
-timeout = 120
-enable_summary_comment = true
-enable_classifier_reasoning = false
-enable_summarizer_reasoning = false
+[ai]  # AI配置
+base_url = "http://localhost:1234"  # AI服务地址
+model = "google/gemma-4-e4b"  # AI模型名称（必填，例如：google/gemma-4-e4b、nvidia/nemotron-3-nano-4b等）
+api_key = ""  # API密钥
+max_tokens = 4096  # 最大输出token数
+temperature = 0.7  # 温度参数（0-1，越高越随机）
+max_workers = 1  # 最大并发数
+batch_size = 1  # 批处理大小
+max_input_length = 2000  # 最大输入长度
+timeout = 120  # 超时时间（秒）
+enable_summary_comment = true  # 是否生成AI评论
+enable_classifier_reasoning = false  # 分类器是否启用推理
+enable_summarizer_reasoning = false  # 摘要器是否启用推理
 
 # AI客户端配置
 # 是否启用JSON格式响应
@@ -102,31 +102,36 @@ importance_description = """
 user_nationality = "中国"  # 国籍
 user_religion = "无"       # 宗教信仰
 
+# 用户兴趣关键字（用于关联度评分，AI会分析新闻中是否命中这些关键字）
+# 示例：interest_keywords = ["人工智能", "大模型", "ChatGPT", "机器学习", "深度学习"]
+# 空列表表示对所有新闻都感兴趣，AI会根据内容质量评分
+interest_keywords = []  # 空列表表示对所有新闻都感兴趣
+
 # 评分维度权重
 topic_relevance_weight = 0.4    # 关联度权重（原主题相关性）
 importance_weight = 0.4          # 重要程度权重
 source_weight = 0.2              # 来源分权重
 
-[server]
-host = "0.0.0.0"
-port = 8000
-enable_websocket = true
+[server]  # 服务器配置
+host = "0.0.0.0"  # 监听地址
+port = 8000  # 监听端口
+enable_websocket = true  # 是否启用WebSocket
 
-[rag]
-top_k = 5
-use_fts = true
+[rag]  # RAG（检索增强生成）配置
+top_k = 5  # 检索结果数量
+use_fts = true  # 是否使用全文搜索
 
-[logging]
-level = "INFO"
-file = "data/logs/kwafoo.log"
-max_size = 10485760
-backup_count = 5
+[logging]  # 日志配置
+level = "INFO"  # 日志级别（DEBUG/INFO/WARNING/ERROR）
+file = "data/logs/kwafoo.log"  # 日志文件路径
+max_size = 10485760  # 最大日志文件大小（字节）
+backup_count = 5  # 备份文件数量
 
-[image.thumbnail_size]
-width = 128
-height = 128
-default_image = ""
-supported_formats = [ "jpg", "jpeg", "png", "webp", "gif",]
+[image.thumbnail_size]  # 缩略图尺寸配置
+width = 128  # 宽度（像素）
+height = 128  # 高度（像素）
+default_image = ""  # 默认图片路径
+supported_formats = [ "jpg", "jpeg", "png", "webp", "gif",]  # 支持的图片格式
 
 [compression]
 # 是否启用文本压缩
@@ -141,114 +146,106 @@ algorithm = "auto"
 mode = "summary"
 max_image_size = 5242880
 
-[report]
-# 报告配置
-enable_auto_generate = false
-auto_generate_types = ["daily"]
-daily_generate_time = "08:00"
-weekly_generate_day = "monday"
-weekly_generate_time = "09:00"
-monthly_generate_day = 1
-monthly_generate_time = "10:00"
-max_news_count = 20
+[report]  # 报告配置
+enable_auto_generate = false  # 是否自动生成报告
+auto_generate_types = ["daily"]  # 自动生成类型（daily/weekly/monthly）
+daily_generate_time = "08:00"  # 每日报告生成时间
+weekly_generate_day = "monday"  # 每周报告生成星期
+weekly_generate_time = "09:00"  # 每周报告生成时间
+monthly_generate_day = 1  # 每月报告生成日期
+monthly_generate_time = "10:00"  # 每月报告生成时间
+max_news_count = 20  # 报告中包含的最大新闻数
 # AI配置
-report_ai_model = "nvidia/nemotron-3-nano-4b"
-report_ai_temperature = 0.7
-report_ai_timeout = 300
+report_ai_model = "google/gemma-4-e4b"  # 报告生成使用的AI模型
+report_ai_temperature = 0.7  # 报告生成的温度参数
+report_ai_timeout = 300  # 报告生成超时时间（秒）
 
-[content_fetch]
-# 是否启用正文抓取
-enable_content_fetch = true
-# 提取算法：density, dom, hybrid
-algorithm = "hybrid"
-# 最小正文长度（字符）
-min_content_length = 200
-# 最大正文长度（字符，超过则压缩）
-max_content_length = 10000
-# 超时时间（秒）
-timeout = 30
-# 是否使用代理
-use_proxy = true
-# 是否缓存已抓取的正文
-enable_cache = true
+[content_fetch]  # 正文抓取配置
+enable_content_fetch = true  # 是否启用正文抓取
+algorithm = "hybrid"  # 提取算法：density, dom, hybrid
+min_content_length = 200  # 最小正文长度（字符）
+max_content_length = 10000  # 最大正文长度（字符，超过则压缩）
+timeout = 30  # 超时时间（秒）
+use_proxy = true  # 是否使用代理
+enable_cache = true  # 是否缓存已抓取的正文
 
-[image.display]
-position = "right"  # "right" 或 "left"
+[image.display]  # 图片显示配置
+position = "right"  # 图片位置："right" 或 "left"
 show_thumbnail = true  # 是否显示缩略图
 
-[[categories]]
-name = "人工智能"
-description = "涉及人工智能技术、机器学习、深度学习、大语言模型、AI应用、AI产品等人工智能相关内容"
-keywords = ["人工智能", "AI", "机器学习", "深度学习", "大模型", "LLM", "ChatGPT", "GPT", "神经网络", "算法", "智能", "生成式AI", "自动驾驶", "机器人"]
-icon = "🤖"
-color = "#9b59b6"
+[[categories]]  # 新闻分类配置
+name = "人工智能"  # 分类名称
+description = "涉及人工智能技术、机器学习、深度学习、大语言模型、AI应用、AI产品等人工智能相关内容"  # 分类描述
+keywords = ["人工智能", "AI", "机器学习", "深度学习", "大模型", "LLM", "ChatGPT", "GPT", "神经网络", "算法", "智能", "生成式AI", "自动驾驶", "机器人"]  # 关键词列表
+icon = "🤖"  # 图标
+color = "#9b59b6"  # 颜色
 
 [[categories]]
-name = "电子硬件"
-description = "涉及计算机、服务器、芯片、显卡、处理器、存储设备等电子工程硬件相关内容"
-keywords = ["硬件", "芯片", "显卡", "处理器", "CPU", "GPU", "内存", "硬盘", "SSD", "主板", "显示器", "键盘", "鼠标", "耳机", "音响", "摄像头", "服务器", "电子工程", "电路", "半导体"]
-icon = "🔧"
-color = "#2c3e50"
+name = "电子硬件"  # 分类名称
+description = "涉及计算机、服务器、芯片、显卡、处理器、存储设备等电子工程硬件相关内容"  # 分类描述
+keywords = ["硬件", "芯片", "显卡", "处理器", "CPU", "GPU", "内存", "硬盘", "SSD", "主板", "显示器", "键盘", "鼠标", "耳机", "音响", "摄像头", "服务器", "电子工程", "电路", "半导体"]  # 关键词列表
+icon = "🔧"  # 图标
+color = "#2c3e50"  # 颜色
 
 [[categories]]
-name = "信息技术"
-description = "涉及互联网、编程、软件、数据库、网络安全、云计算、大数据、物联网等信息技术相关内容"
-keywords = ["互联网", "编程", "软件", "代码", "开发", "数据库", "网络安全", "云计算", "大数据", "物联网", "5G", "区块链", "Web", "App", "API", "算法", "开源", "GitHub", "Git", "DevOps", "SaaS"]
-icon = "💻"
-color = "#00cec9"
+name = "信息技术"  # 分类名称
+description = "涉及互联网、编程、软件、数据库、网络安全、云计算、大数据、物联网等信息技术相关内容"  # 分类描述
+keywords = ["互联网", "编程", "软件", "代码", "开发", "数据库", "网络安全", "云计算", "大数据", "物联网", "5G", "区块链", "Web", "App", "API", "算法", "开源", "GitHub", "Git", "DevOps", "SaaS"]  # 关键词列表
+icon = "💻"  # 图标
+color = "#00cec9"  # 颜色
 
 [[categories]]
-name = "前沿科技"
-description = "涉及理论物理、生物科技、量子计算、基因编辑、新材料、新能源等前沿科技领域，而非通用或实现了产业化的科技产品"
-keywords = ["理论物理", "量子", "生物科技", "基因编辑", "新材料", "新能源", "纳米技术", "脑机接口", "可控核聚变", "暗物质", "黑洞", "相对论", "CRISPR", "干细胞", "合成生物学"]
-icon = "🔬"
-color = "#3498db"
+name = "前沿科技"  # 分类名称
+description = "涉及理论物理、生物科技、量子计算、基因编辑、新材料、新能源等前沿科技领域，而非通用或实现了产业化的科技产品"  # 分类描述
+keywords = ["理论物理", "量子", "生物科技", "基因编辑", "新材料", "新能源", "纳米技术", "脑机接口", "可控核聚变", "暗物质", "黑洞", "相对论", "CRISPR", "干细胞", "合成生物学"]  # 关键词列表
+icon = "🔬"  # 图标
+color = "#3498db"  # 颜色
 
 [[categories]]
-name = "金融贸易"
-description = "涉及股票、金融、经济、投资、企业财报、贸易等金融贸易相关内容"
-keywords = ["股票", "金融", "经济", "投资", "财报", "基金", "债券", "期货", "外汇", "银行", "保险", "贸易", "进出口"]
-icon = "💰"
-color = "#27ae60"
+name = "金融贸易"  # 分类名称
+description = "涉及股票、金融、经济、投资、企业财报、贸易等金融贸易相关内容"  # 分类描述
+keywords = ["股票", "金融", "经济", "投资", "财报", "基金", "债券", "期货", "外汇", "银行", "保险", "贸易", "进出口"]  # 关键词列表
+icon = "💰"  # 图标
+color = "#27ae60"  # 颜色
 
 [[categories]]
-name = "国际政治"
-description = "涉及国际新闻、世界大事、外交关系、政治事件、国际法律、国际环境、国际军事、国际交通等国际政治相关内容"
-keywords = ["国际", "世界", "外交", "全球", "跨国", "联合国", "欧盟", "美国", "欧洲", "亚洲", "非洲", "政治", "选举", "政策", "国际法", "国际环境", "气候变化", "国际军事", "国际交通", "国际航空", "国际航运"]
-icon = "🌍"
-color = "#e74c3c"
+name = "国际政治"  # 分类名称
+description = "涉及国际新闻、世界大事、外交关系、政治事件、国际法律、国际环境、国际军事、国际交通等国际政治相关内容"  # 分类描述
+keywords = ["国际", "世界", "外交", "全球", "跨国", "联合国", "欧盟", "美国", "欧洲", "亚洲", "非洲", "政治", "选举", "政策", "国际法", "国际环境", "气候变化", "国际军事", "国际交通", "国际航空", "国际航运"]  # 关键词列表
+icon = "🌍"  # 图标
+color = "#e74c3c"  # 颜色
 
 [[categories]]
-name = "教育文化"
-description = "涉及教育、学校、培训、考试、留学、教育政策、文化、艺术、历史、考古、博物馆等教育文化相关内容"
-keywords = ["教育", "学校", "大学", "高考", "考研", "留学", "培训", "考试", "教师资格", "教育政策", "在线教育", "职业教育", "幼儿教育", "义务教育", "文化", "艺术", "历史", "考古", "博物馆", "文物", "非遗", "传统文化", "现代艺术", "书法", "绘画", "雕塑", "文化遗产"]
-icon = "🎓"
-color = "#6c5ce7"
+name = "教育文化"  # 分类名称
+description = "涉及教育、学校、培训、考试、留学、教育政策、文化、艺术、历史、考古、博物馆等教育文化相关内容"  # 分类描述
+keywords = ["教育", "学校", "大学", "高考", "考研", "留学", "培训", "考试", "教师资格", "教育政策", "在线教育", "职业教育", "幼儿教育", "义务教育", "文化", "艺术", "历史", "考古", "博物馆", "文物", "非遗", "传统文化", "现代艺术", "书法", "绘画", "雕塑", "文化遗产"]  # 关键词列表
+icon = "🎓"  # 图标
+color = "#6c5ce7"  # 颜色
 
 [[categories]]
-name = "生活娱乐"
-description = "涉及日常生活、美食、游戏、电影、音乐、明星、娱乐活动等生活娱乐相关内容"
-keywords = ["生活", "美食", "游戏", "娱乐", "电影", "音乐", "明星", "电视剧", "综艺", "演唱会", "演员", "歌手", "导演", "票房", "旅游", "烹饪"]
-icon = "🎮"
-color = "#fd79a8"
+name = "生活娱乐"  # 分类名称
+description = "涉及日常生活、美食、游戏、电影、音乐、明星、娱乐活动等生活娱乐相关内容"  # 分类描述
+keywords = ["生活", "美食", "游戏", "娱乐", "电影", "音乐", "明星", "电视剧", "综艺", "演唱会", "演员", "歌手", "导演", "票房", "旅游", "烹饪"]  # 关键词列表
+icon = "🎮"  # 图标
+color = "#fd79a8"  # 颜色
 
 [[categories]]
-name = "国内民生"
-description = "涉及国内与个人生活相关的新闻，包括住房、就业、社会保障、民生政策、国内法律、国内环境、国内交通等"
-keywords = ["民生", "住房", "就业", "社保", "民生政策", "户籍", "国内交通", "国内环境", "食品安全", "物价", "养老", "工资", "福利", "国内法律", "法规", "司法", "法院", "检察院", "律师", "判决", "案件", "起诉", "辩护", "民法典", "刑法", "行政诉讼", "环保", "污染", "生态", "垃圾分类", "空气质量", "水污染", "土壤污染", "交通", "出行", "国内汽车", "公交", "地铁", "出租车", "网约车", "高速公路", "机场", "火车站", "交通法规"]
-icon = "🏠"
-color = "#e67e22"
+name = "国内民生"  # 分类名称
+description = "涉及国内与个人生活相关的新闻，包括住房、就业、社会保障、民生政策、国内法律、国内环境、国内交通等"  # 分类描述
+keywords = ["民生", "住房", "就业", "社保", "民生政策", "户籍", "国内交通", "国内环境", "食品安全", "物价", "养老", "工资", "福利", "国内法律", "法规", "司法", "法院", "检察院", "律师", "判决", "案件", "起诉", "辩护", "民法典", "刑法", "行政诉讼", "环保", "污染", "生态", "垃圾分类", "空气质量", "水污染", "土壤污染", "交通", "出行", "国内汽车", "公交", "地铁", "出租车", "网约车", "高速公路", "机场", "火车站", "交通法规"]  # 关键词列表
+icon = "🏠"  # 图标
+color = "#e67e22"  # 颜色
 
 [[categories]]
-name = "医疗健康"
-description = "医疗健康领域的新闻，主要关注已经实现的治疗方法、医疗技术、健康养生等，而非前沿医疗研究"
-keywords = ["医疗", "治疗", "养生", "医院", "药物", "疫苗", "手术", "诊断", "医保", "医生", "护士", "疾病", "预防"]
-icon = "🏥"
-color = "#00b894"
+name = "医疗健康"  # 分类名称
+description = "医疗健康领域的新闻，主要关注已经实现的治疗方法、医疗技术、健康养生等，而非前沿医疗研究"  # 分类描述
+keywords = ["医疗", "治疗", "养生", "医院", "药物", "疫苗", "手术", "诊断", "医保", "医生", "护士", "疾病", "预防"]  # 关键词列表
+icon = "🏥"  # 图标
+color = "#00b894"  # 颜色
 
 [[categories]]
-name = "消费产品"
-description = "涉及非计算机硬件领域的产品发布、产品质量、消费者维权、产品评测等相关内容"
-keywords = ["产品", "发布会", "质量", "维权", "评测", "体验", "功能", "设计", "价格", "销量", "召回", "家电", "家具", "汽车", "服装", "食品"]
-icon = "📦"
-color = "#f1c40f"
+name = "消费产品"  # 分类名称
+description = "涉及非计算机硬件领域的产品发布、产品质量、消费者维权、产品评测等相关内容"  # 分类描述
+keywords = ["产品", "发布会", "质量", "维权", "评测", "体验", "功能", "设计", "价格", "销量", "召回", "家电", "家具", "汽车", "服装", "食品"]  # 关键词列表
+icon = "📦"  # 图标
+color = "#f1c40f"  # 颜色

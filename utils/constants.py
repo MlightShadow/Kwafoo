@@ -9,7 +9,7 @@ class AIConstants:
     
     # 默认AI配置
     DEFAULT_BASE_URL = "http://localhost:1234"
-    DEFAULT_MODEL = "nvidia/nemotron-3-nano-4b"
+    DEFAULT_MODEL = "google/gemma-4-e4b"
     DEFAULT_MAX_TOKENS = 4096
     DEFAULT_TEMPERATURE = 0.7
     DEFAULT_MAX_WORKERS = 1

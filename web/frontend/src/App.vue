@@ -194,8 +194,12 @@ onMounted(async () => {
   await configStore.loadConfig()
   
   // 将分类配置设置到 newsStore
+  console.log('配置加载完成，检查分类数据:', configStore.config)
   if (configStore.config?.categories) {
+    console.log('设置分类数据:', configStore.config.categories)
     newsStore.setCategories(configStore.config.categories)
+  } else {
+    console.warn('配置中没有分类数据')
   }
   
   await newsStore.loadNews()

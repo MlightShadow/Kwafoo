@@ -15,8 +15,8 @@ class ReportGenerator:
     """报告生成器"""
     
     def __init__(self):
-        self.base_url = config.get('ai.base_url', 'http://localhost:1234')
-        self.model = config.get('ai.model', 'nvidia/nemotron-3-nano-4b')
+        self.base_url = config.get('ai.base_url')
+        self.model = config.get('ai.model')
         self.api_key = config.get('ai.api_key', '')
         self.max_tokens = config.get('ai.max_tokens', 4096)
         self.temperature = config.get('ai.temperature', 0.7)

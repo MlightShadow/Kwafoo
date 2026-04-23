@@ -272,7 +272,7 @@ class Config:
             },
             'ai': {
                 'base_url': 'http://localhost:1234',
-                'model': 'nvidia/nemotron-3-nano-4b',
+                'model': '',
                 'api_key': '',
                 'max_tokens': 4096,
                 'temperature': 0.7,

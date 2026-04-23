@@ -54,6 +54,7 @@ async function selectCategory(category: string) {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  overflow-x: hidden;
 }
 
 .category-btn {
@@ -77,8 +78,7 @@ async function selectCategory(category: string) {
 }
 
 .category-btn:hover {
-  background: #f9fafb;
-  transform: translateX(4px);
+  transform: translateX(2px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 
@@ -96,17 +96,11 @@ async function selectCategory(category: string) {
   background: rgba(255, 255, 255, 0.85);
   border-radius: 6px;
   pointer-events: none;
-  z-index: -1;
+  z-index: 0;
 }
 
 .category-btn.has-color:hover::before {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.category-btn.has-color:hover {
-  background: transparent;
-  transform: translateX(4px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .category-btn.active {
@@ -117,9 +111,13 @@ async function selectCategory(category: string) {
 
 .category-icon {
   font-size: 1.25rem;
+  position: relative;
+  z-index: 1;
 }
 
 .category-name {
   font-weight: 600;
+  position: relative;
+  z-index: 1;
 }
 </style>

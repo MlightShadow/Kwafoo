@@ -101,11 +101,11 @@ class APIClient {
   }
 
   // Config API
-  async getConfig(): Promise<AxiosResponse<{ success: boolean; data: Config }>> {
+  async getConfig(): Promise<AxiosResponse<{ success: boolean; data: { categories: any[], default_category: string, enable_ai_category: boolean, image_display: any } }>> {
     return this.client.get('/config')
   }
 
-  async updateConfig(configData: Partial<Config>): Promise<AxiosResponse<{ success: boolean; message: string; data: Config }>> {
+  async updateConfig(configData: Partial<{ categories: any[], default_category: string, enable_ai_category: boolean, image_display: any }>): Promise<AxiosResponse<{ success: boolean; message: string; data: any }>> {
     return this.client.post('/config', configData)
   }
 

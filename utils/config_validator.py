@@ -238,6 +238,9 @@ class ConfigValidator:
         if 'ai' in config:
             all_errors.extend(ConfigValidator.validate_ai(config['ai']))
         
+        if 'compression' in config:
+            all_errors.extend(ConfigValidator.validate_compression(config['compression']))
+        
         if 'image' in config:
             all_errors.extend(ConfigValidator.validate_image(config['image']))
         

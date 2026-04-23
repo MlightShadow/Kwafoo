@@ -12,6 +12,9 @@ class AIClassifier(ConfigObserver):
         
         self.max_input_length: int = config.get('ai.max_input_length', 800)
         
+        # 获取用户信息（国籍和宗教）
+        self.user_info = self._get_user_info()
+        
         # 注册为配置观察者
         config.add_observer(self)
 
@@ -29,6 +32,9 @@ class AIClassifier(ConfigObserver):
         self.categories_config = config.get('categories', [])
         self.default_category = get_default_category()
         self.max_input_length = config.get('ai.max_input_length', 800)
+        
+        # 更新用户信息
+        self.user_info = self._get_user_info()
 
     def classify(self, title: str, description: str, 
                  source_category: str = None) -> Optional[Dict[str, Any]]:
@@ -236,17 +242,46 @@ class AIClassifier(ConfigObserver):
 
 描述：{desc_text}
 
+用户信息：
+- 国籍：{self.user_info.get('nationality', '未知')}
+- 宗教：{self.user_info.get('religion', '未知')}
+
 要求：
 1. **首先仔细阅读上述"分类说明"中每个分类的详细描述，理解每个分类的适用范围**
-2. 根据新闻的核心内容，选择最相关的1-2个分类
-3. 如果新闻主要涉及一个分类，只返回一个分类
-4. 如果新闻确实涉及多个分类，最多返回2个分类，用逗号分隔
-5. 不要为了保险而选择多个分类，只选择真正相关的
-6. **重要：必须从以下分类中选择一个：{categories_str}**
-7. **不要返回"未分类"，即使新闻看起来不相关，也要选择最接近的分类**
-8. 提取10个与新闻内容相关的关键字
-9. 关键字应该简洁、准确，能够体现新闻的核心内容
-10. 关键字可以是名词、动词、形容词等，但要确保与新闻内容相关"""
+2. **特别注意：在判断"国内民生"和"国际政治"分类时，必须考虑用户的国籍信息**
+   - 如果用户国籍是"中国"，则涉及中国的事件应归类为"国内民生"
+   - 如果用户国籍是"中国"，则涉及其他国家的事件应归类为"国际政治"
+   - 如果用户国籍是"中国"，则涉及德国、美国等外国的事件应归类为"国际政治"，而不是"国内民生"
+   - 如果新闻涉及多个国家，但主要涉及用户所在国家，应优先考虑"国内民生"
+3. **特别注意：在判断涉及宗教内容的分类时，必须考虑用户的宗教信仰**
+   - 如果用户宗教是"无"，则宗教相关内容应归类为"教育文化"或"国际政治"
+   - 如果用户有特定宗教信仰，则涉及该宗教的内容应考虑归类到相关分类
+4. 根据新闻的核心内容，选择最相关的1-2个分类
+5. 如果新闻主要涉及一个分类，只返回一个分类
+6. 如果新闻确实涉及多个分类，最多返回2个分类，用逗号分隔
+7. 不要为了保险而选择多个分类，只选择真正相关的
+8. **重要：必须从以下分类中选择一个：{categories_str}**
+9. **不要返回"未分类"，即使新闻看起来不相关，也要选择最接近的分类**
+10. 提取10个与新闻内容相关的关键字
+11. 关键字应该简洁、准确，能够体现新闻的核心内容
+12. 关键字可以是名词、动词、形容词等，但要确保与新闻内容相关"""
+    
+    def _get_user_info(self) -> Dict[str, str]:
+        """
+        获取用户信息
+        
+        Returns:
+            用户信息字典，包含国籍和宗教信仰
+        """
+        try:
+            scoring_config = config.get('ai.scoring', {})
+            return {
+                'nationality': scoring_config.get('user_nationality', '未知'),
+                'religion': scoring_config.get('user_religion', '未知')
+            }
+        except Exception as e:
+            logger.error(f"获取用户信息失败: {e}")
+            return {}
 
 
 ai_classifier = AIClassifier()
