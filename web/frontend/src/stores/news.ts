@@ -13,10 +13,19 @@ export const useNewsStore = defineStore('news', () => {
   const error = ref<string | null>(null)
 
   const filteredNews = computed(() => {
+    let filtered = []
     if (!currentCategory.value || currentCategory.value === '全部') {
-      return newsList.value
+      filtered = newsList.value
+    } else {
+      filtered = newsList.value.filter(news => news.category === currentCategory.value)
     }
-    return newsList.value.filter(news => news.category === currentCategory.value)
+    
+    // 按发布时间降序排序（最新的在前）
+    return filtered.sort((a, b) => {
+      const timeA = a.publish_time ? new Date(a.publish_time).getTime() : 0
+      const timeB = b.publish_time ? new Date(b.publish_time).getTime() : 0
+      return timeB - timeA
+    })
   })
 
   const newsCount = computed(() => filteredNews.value.length)

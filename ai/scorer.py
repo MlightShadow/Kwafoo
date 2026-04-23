@@ -51,7 +51,7 @@ class AIScorer(ConfigObserver):
         else:
             logger.info("兴趣关键字已清空，将对所有新闻感兴趣")
     
-    def score_news(self, news_data: Dict[str, Any], manual: bool = False) -> Optional[Dict[str, float]]:
+    def score_news(self, news_data: Dict[str, Any], manual: bool = False) -> Optional[Dict[str, Any]]:
         """
         对新闻进行综合评分
         
@@ -60,7 +60,7 @@ class AIScorer(ConfigObserver):
             manual: 是否手动触发（手动触发时始终评分）
             
         Returns:
-            评分字典，包含总分和3个维度的分数，如果评分未启用且非手动触发则返回None
+            评分字典，包含总分、3个维度的分数和对应的理由，如果评分未启用且非手动触发则返回None
         """
         if not self.enable_scoring and not manual:
             logger.info("AI评分未启用，跳过评分")
@@ -68,9 +68,13 @@ class AIScorer(ConfigObserver):
         
         try:
             # 计算各维度评分
-            relevance = self._calculate_relevance(news_data)
-            importance = self._calculate_importance(news_data)
-            source_score = self._calculate_source_score(news_data)
+            relevance_result = self._calculate_relevance(news_data)
+            importance_result = self._calculate_importance(news_data)
+            source_result = self._calculate_source_score(news_data)
+            
+            relevance = relevance_result['score']
+            importance = importance_result['score']
+            source_score = source_result['score']
             
             # 综合评分
             total_score = (
@@ -94,14 +98,17 @@ class AIScorer(ConfigObserver):
                 'total_score': total_score,
                 'topic_relevance': relevance,  # 保持字段名兼容性
                 'importance': importance,
-                'source_score': source_score
+                'source_score': source_score,
+                'topic_relevance_reason': relevance_result.get('reason', ''),
+                'importance_reason': importance_result.get('reason', ''),
+                'source_reason': source_result.get('reason', '')
             }
             
         except Exception as e:
             logger.error(f"新闻评分失败: ID={news_data.get('id')}, error={e}")
             return None
     
-    def _calculate_relevance(self, news_data: Dict[str, Any]) -> float:
+    def _calculate_relevance(self, news_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         计算关联度评分（0-100）- AI判断
         
@@ -109,7 +116,7 @@ class AIScorer(ConfigObserver):
             news_data: 新闻数据
             
         Returns:
-            关联度评分
+            包含分数和理由的字典
         """
         try:
             title = news_data.get('title', '')
@@ -123,7 +130,11 @@ class AIScorer(ConfigObserver):
             # 如果没有兴趣关键字，根据内容质量评分
             if not interest_keywords:
                 logger.info("没有配置兴趣关键字，根据内容质量评分")
-                return self._calculate_content_quality_score(title, summary, content, category)
+                quality_result = self._calculate_content_quality_score(title, summary, content, category)
+                return {
+                    'score': quality_result,
+                    'reason': '未配置兴趣关键字，根据内容质量评分'
+                }
             
             # 构建提示词，让AI分析关键字命中情况
             prompt = self._build_keyword_match_prompt(title, summary, content, category, interest_keywords)
@@ -174,23 +185,33 @@ class AIScorer(ConfigObserver):
             
             if not response.success:
                 logger.error(f"AI关联度评分失败: {response.error}")
-                return 50.0
+                return {
+                    'score': 50.0,
+                    'reason': 'AI调用失败'
+                }
             
             # 获取响应数据
             data = response.data
             relevance = data.get('relevance', 50.0)
             matched_keywords = data.get('matched_keywords', [])
             match_details = data.get('match_details', '')
+            reason = data.get('reason', '')
             
             # 限制在0-100范围内
             relevance = max(0, min(100, relevance))
             
-            logger.info(f"AI关联度评分: {relevance:.2f}, 命中关键字: {matched_keywords}, 命中详情: {match_details}, 评分理由: {data.get('reason', '')}")
-            return relevance
+            logger.info(f"AI关联度评分: {relevance:.2f}, 命中关键字: {matched_keywords}, 命中详情: {match_details}, 评分理由: {reason}")
+            return {
+                'score': relevance,
+                'reason': reason
+            }
             
         except Exception as e:
             logger.error(f"计算关联度失败: {e}")
-            return 50.0
+            return {
+                'score': 50.0,
+                'reason': f'计算失败: {str(e)}'
+            }
     
     def _build_keyword_match_prompt(self, title: str, summary: str, content: str, category: str, interest_keywords: List[str]) -> str:
         """
@@ -325,7 +346,7 @@ class AIScorer(ConfigObserver):
             logger.error(f"计算内容质量失败: {e}")
             return 50.0
     
-    def _calculate_importance(self, news_data: Dict[str, Any]) -> float:
+    def _calculate_importance(self, news_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         计算重要程度评分（0-100）- AI判断
         
@@ -333,7 +354,7 @@ class AIScorer(ConfigObserver):
             news_data: 新闻数据
             
         Returns:
-            重要程度评分
+            包含分数和理由的字典
         """
         try:
             title = news_data.get('title', '')
@@ -380,21 +401,31 @@ class AIScorer(ConfigObserver):
             
             if not response.success:
                 logger.error(f"AI重要程度评分失败: {response.error}")
-                return 50.0
+                return {
+                    'score': 50.0,
+                    'reason': 'AI调用失败'
+                }
             
             # 获取响应数据
             data = response.data
             importance = data.get('importance', 50.0)
+            reason = data.get('reason', '')
             
             # 限制在0-100范围内
             importance = max(0, min(100, importance))
             
-            logger.debug(f"AI重要程度评分: {importance:.2f}, 理由: {data.get('reason', '')}, 重试次数: {response.retry_count}")
-            return importance
+            logger.debug(f"AI重要程度评分: {importance:.2f}, 理由: {reason}, 重试次数: {response.retry_count}")
+            return {
+                'score': importance,
+                'reason': reason
+            }
             
         except Exception as e:
             logger.error(f"计算重要程度失败: {e}")
-            return 50.0
+            return {
+                'score': 50.0,
+                'reason': f'计算失败: {str(e)}'
+            }
     
     def _build_importance_prompt(self, title: str, summary: str) -> str:
         """
@@ -432,7 +463,7 @@ class AIScorer(ConfigObserver):
 
 请返回JSON格式，包含importance（重要程度评分）和reason（评分理由）两个字段。"""
     
-    def _calculate_source_score(self, news_data: Dict[str, Any]) -> float:
+    def _calculate_source_score(self, news_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         计算来源分（0-100）- 从配置读取
         
@@ -440,26 +471,38 @@ class AIScorer(ConfigObserver):
             news_data: 新闻数据
             
         Returns:
-            来源分
+            包含分数和理由的字典
         """
         try:
             source = news_data.get('source', '')
             
             if not source:
-                return 50.0  # 如果没有来源信息，给中等分数
+                return {
+                    'score': 50.0,
+                    'reason': '没有来源信息，给中等分数'
+                }
             
             # 从新闻源配置中读取来源分
             source_score = self._get_source_score_from_config(source)
             
             if source_score is None:
-                return 100.0  # 如果没有配置来源分，默认100分
+                return {
+                    'score': 100.0,
+                    'reason': f'来源"{source}"未配置评分，默认100分'
+                }
             
             logger.debug(f"来源分: source={source}, score={source_score}")
-            return source_score
+            return {
+                'score': source_score,
+                'reason': f'来源"{source}"的配置评分'
+            }
             
         except Exception as e:
             logger.error(f"计算来源分失败: {e}")
-            return 50.0
+            return {
+                'score': 50.0,
+                'reason': f'计算失败: {str(e)}'
+            }
     
     def _get_source_score_from_config(self, source: str) -> Optional[float]:
         """

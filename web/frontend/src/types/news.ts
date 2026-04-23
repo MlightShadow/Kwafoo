@@ -22,6 +22,9 @@ export interface News {
   ai_score_importance?: number
   ai_score_freshness?: number
   ai_score_source?: number
+  ai_score_topic_relevance_reason?: string
+  ai_score_importance_reason?: string
+  ai_score_source_reason?: string
   keywords?: string
 }
 

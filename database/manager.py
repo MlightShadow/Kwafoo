@@ -289,7 +289,8 @@ class DatabaseManager:
                            category, publish_time, fetch_time, is_visible, ai_processed,
                            image_url, image_data, is_deleted, is_read,
                            compressed_content, keywords, ai_comment, ai_score,
-                           ai_score_topic_relevance, ai_score_importance, ai_score_source
+                           ai_score_topic_relevance, ai_score_importance, ai_score_source,
+                           ai_score_topic_relevance_reason, ai_score_importance_reason, ai_score_source_reason
                     FROM news
                 ''')
                 
@@ -322,7 +323,10 @@ class DatabaseManager:
                         ai_score REAL,
                         ai_score_topic_relevance REAL,
                         ai_score_importance REAL,
-                        ai_score_source REAL
+                        ai_score_source REAL,
+                        ai_score_topic_relevance_reason TEXT,
+                        ai_score_importance_reason TEXT,
+                        ai_score_source_reason TEXT
                     )
                 ''')
                 
@@ -333,13 +337,15 @@ class DatabaseManager:
                         category, publish_time, fetch_time, is_visible, ai_processed,
                         image_url, image_data, is_deleted, is_read,
                         compressed_content, keywords, ai_comment, ai_score,
-                        ai_score_topic_relevance, ai_score_importance, ai_score_source
+                        ai_score_topic_relevance, ai_score_importance, ai_score_source,
+                        ai_score_topic_relevance_reason, ai_score_importance_reason, ai_score_source_reason
                     )
                     SELECT id, title, description, ai_summary, content, url, source, source_url,
                            category, publish_time, fetch_time, is_visible, ai_processed,
                            image_url, image_data, is_deleted, is_read,
                            compressed_content, keywords, ai_comment, ai_score,
-                           ai_score_topic_relevance, ai_score_importance, ai_score_source
+                           ai_score_topic_relevance, ai_score_importance, ai_score_source,
+                           ai_score_topic_relevance_reason, ai_score_importance_reason, ai_score_source_reason
                     FROM news_backup
                 ''')
                 
@@ -358,6 +364,19 @@ class DatabaseManager:
             if 'ai_score_source' not in columns:
                 cursor.execute("ALTER TABLE news ADD COLUMN ai_score_source FLOAT")
                 logger.info("数据库迁移：添加 ai_score_source 字段")
+            
+            # 添加打分理由字段
+            if 'ai_score_topic_relevance_reason' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_topic_relevance_reason TEXT")
+                logger.info("数据库迁移：添加 ai_score_topic_relevance_reason 字段")
+            
+            if 'ai_score_importance_reason' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_importance_reason TEXT")
+                logger.info("数据库迁移：添加 ai_score_importance_reason 字段")
+            
+            if 'ai_score_source_reason' not in columns:
+                cursor.execute("ALTER TABLE news ADD COLUMN ai_score_source_reason TEXT")
+                logger.info("数据库迁移：添加 ai_score_source_reason 字段")
             
             # 添加 ai_comment 字段（AI评价）
             if 'ai_comment' not in columns:
@@ -846,7 +865,10 @@ class DatabaseManager:
     def update_news_score(self, news_id: int, ai_score: float, 
                         topic_relevance: float = None,
                         importance: float = None,
-                        source_score: float = None) -> bool:
+                        source_score: float = None,
+                        topic_relevance_reason: str = None,
+                        importance_reason: str = None,
+                        source_reason: str = None) -> bool:
         """更新新闻AI评分
         
         Args:
@@ -855,6 +877,9 @@ class DatabaseManager:
             topic_relevance: 关联度评分
             importance: 重要程度评分
             source_score: 来源可信度评分
+            topic_relevance_reason: 关联度评分理由
+            importance_reason: 重要程度评分理由
+            source_reason: 来源可信度评分理由
             
         Returns:
             是否成功
@@ -877,6 +902,18 @@ class DatabaseManager:
             if source_score is not None:
                 update_fields.append("ai_score_source = ?")
                 params.append(source_score)
+            
+            if topic_relevance_reason is not None:
+                update_fields.append("ai_score_topic_relevance_reason = ?")
+                params.append(topic_relevance_reason)
+            
+            if importance_reason is not None:
+                update_fields.append("ai_score_importance_reason = ?")
+                params.append(importance_reason)
+            
+            if source_reason is not None:
+                update_fields.append("ai_score_source_reason = ?")
+                params.append(source_reason)
             
             params.append(news_id)
             
@@ -1166,7 +1203,10 @@ class DatabaseManager:
                     ai_score = NULL,
                     ai_score_topic_relevance = NULL,
                     ai_score_importance = NULL,
-                    ai_score_source = NULL
+                    ai_score_source = NULL,
+                    ai_score_topic_relevance_reason = NULL,
+                    ai_score_importance_reason = NULL,
+                    ai_score_source_reason = NULL
                 WHERE id = ?
             ''', (news_id,))
             self._connection.commit()

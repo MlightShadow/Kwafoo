@@ -111,6 +111,9 @@
                   <div class="score-dimension-bar">
                     <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_topic_relevance || 0) + '%' }"></div>
                   </div>
+                  <div v-if="newsDetail.ai_score_topic_relevance_reason" class="score-dimension-reason">
+                    {{ newsDetail.ai_score_topic_relevance_reason }}
+                  </div>
                 </div>
 
                 <div class="score-dimension-item">
@@ -120,6 +123,9 @@
                   </div>
                   <div class="score-dimension-bar">
                     <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_importance || 0) + '%' }"></div>
+                  </div>
+                  <div v-if="newsDetail.ai_score_importance_reason" class="score-dimension-reason">
+                    {{ newsDetail.ai_score_importance_reason }}
                   </div>
                 </div>
 
@@ -140,6 +146,9 @@
                   </div>
                   <div class="score-dimension-bar">
                     <div class="score-dimension-bar-fill" :style="{ width: (newsDetail.ai_score_source || 0) + '%' }"></div>
+                  </div>
+                  <div v-if="newsDetail.ai_score_source_reason" class="score-dimension-reason">
+                    {{ newsDetail.ai_score_source_reason }}
                   </div>
                 </div>
               </div>
@@ -960,6 +969,17 @@ defineExpose({
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   border-radius: 4px;
   transition: width 0.5s ease;
+}
+
+.score-dimension-reason {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f9fafb;
+  border-left: 3px solid #667eea;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #4b5563;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {

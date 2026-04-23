@@ -266,7 +266,10 @@ class AINewsProcessor:
                             score_dict['total_score'],
                             score_dict['topic_relevance'],
                             score_dict['importance'],
-                            score_dict['source_score']
+                            score_dict['source_score'],
+                            score_dict.get('topic_relevance_reason', ''),
+                            score_dict.get('importance_reason', ''),
+                            score_dict.get('source_reason', '')
                         )
                         logger.info(f"新闻评分已更新: ID={news_id}, score={score_dict['total_score']}")
                     else:
