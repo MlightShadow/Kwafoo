@@ -36,9 +36,26 @@ class DatabaseManager:
         if db_dir and not os.path.exists(db_dir):
             os.makedirs(db_dir)
         
-        connection = sqlite3.connect(db_path, check_same_thread=False)
+        # 增加超时时间到30秒，避免数据库锁定错误
+        connection = sqlite3.connect(
+            db_path, 
+            check_same_thread=False,
+            timeout=30.0  # 30秒超时
+        )
         connection.row_factory = sqlite3.Row
-        logger.info(f"数据库连接成功: {db_path}")
+        
+        # 启用WAL模式，提高并发性能
+        try:
+            cursor = connection.cursor()
+            cursor.execute('PRAGMA journal_mode=WAL')
+            cursor.execute('PRAGMA synchronous=NORMAL')
+            cursor.execute('PRAGMA busy_timeout=30000')  # 30秒
+            connection.commit()
+            logger.info(f"数据库连接成功: {db_path} (WAL模式已启用)")
+        except Exception as e:
+            logger.warning(f"启用WAL模式失败: {e}")
+            logger.info(f"数据库连接成功: {db_path}")
+        
         return connection
     
     def _get_beijing_time(self) -> str:
@@ -1210,31 +1227,46 @@ class DatabaseManager:
         Returns:
             是否成功
         """
-        try:
-            cursor = self._connection.cursor()
-            cursor.execute('''
-                UPDATE news 
-                SET ai_processed = 0,
-                    ai_summary = NULL,
-                    category = NULL,
-                    keywords = NULL,
-                    ai_comment = NULL,
-                    ai_score = NULL,
-                    ai_score_topic_relevance = NULL,
-                    ai_score_importance = NULL,
-                    ai_score_source = NULL,
-                    ai_score_topic_relevance_reason = NULL,
-                    ai_score_importance_reason = NULL,
-                    ai_score_source_reason = NULL
-                WHERE id = ?
-            ''', (news_id,))
-            self._connection.commit()
-            logger.info(f"已清除新闻AI处理状态: news_id={news_id}")
-            return True
-        except Exception as e:
-            logger.error(f"清除AI处理状态失败: {e}")
-            self._connection.rollback()
-            return False
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                cursor = self._connection.cursor()
+                cursor.execute('''
+                    UPDATE news 
+                    SET ai_processed = 0,
+                        ai_summary = NULL,
+                        category = NULL,
+                        keywords = NULL,
+                        ai_comment = NULL,
+                        ai_score = NULL,
+                        ai_score_topic_relevance = NULL,
+                        ai_score_importance = NULL,
+                        ai_score_source = NULL,
+                        ai_score_topic_relevance_reason = NULL,
+                        ai_score_importance_reason = NULL,
+                        ai_score_source_reason = NULL
+                    WHERE id = ?
+                ''', (news_id,))
+                self._connection.commit()
+                logger.info(f"已清除新闻AI处理状态: news_id={news_id}")
+                return True
+            except sqlite3.OperationalError as e:
+                if 'database is locked' in str(e) and attempt < max_retries - 1:
+                    # 数据库锁定，等待后重试
+                    import time
+                    wait_time = 0.5 * (attempt + 1)  # 0.5秒, 1秒, 1.5秒
+                    logger.warning(f"数据库锁定，第{attempt + 1}次重试，{wait_time}秒后重试: news_id={news_id}")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"清除AI处理状态失败: news_id={news_id}, 错误: {e}")
+                    self._connection.rollback()
+                    return False
+            except Exception as e:
+                logger.error(f"清除AI处理状态失败: {e}")
+                self._connection.rollback()
+                return False
+        return False
 
     def add_to_ai_queue(self, news_id: int, task_type: str = 'all', priority: int = 0) -> int:
         """

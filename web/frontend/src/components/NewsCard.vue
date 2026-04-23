@@ -613,7 +613,7 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
 .background-image {
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  object-fit: cover;
   opacity: 0.25;
   filter: blur(1px);
 }
@@ -1009,5 +1009,38 @@ watch(() => props.news.category, (newCategory, oldCategory) => {
     max-height: 120px; /* 移动端摘要高度稍小 */
     margin: 0 0.75rem 0.75rem 0.75rem;
   }
+}
+</style>
+
+<style>
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #8b8b8b;
+}
+
+/* Firefox滚动条样式 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
 }
 </style>
