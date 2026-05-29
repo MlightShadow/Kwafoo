@@ -7,8 +7,8 @@ echo.
 echo [1/5] 检查Node.js环境...
 node --version
 if errorlevel 1 (
-    echo 警告: 未安装Node.js，跳过前端构建
-    echo 提示: 如需构建Vue前端，请先安装Node.js
+    echo Warning: Node.js not installed, skipping frontend build
+    echo Tip: Install Node.js to build Vue frontend
     set SKIP_FRONTEND=1
 ) else (
     echo Node.js 环境正常
