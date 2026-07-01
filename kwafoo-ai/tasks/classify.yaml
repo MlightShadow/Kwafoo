@@ -1,0 +1,86 @@
+name: classify
+version: "1.0"
+description: "新闻智能分类 - 根据标题和内容判断所属分类，并提取关键字"
+
+input_schema:
+  type: object
+  required: [title, content]
+  properties:
+    title:
+      type: string
+      description: "新闻标题"
+      max_length: 200
+    content:
+      type: string
+      description: "新闻内容（正文/摘要/描述）"
+      max_length: 2000
+    categories:
+      type: array
+      items:
+        type: string
+      description: "可用分类列表"
+      default_from_config: "categories"
+    context:
+      type: object
+      description: "额外上下文（如用户信息）"
+      properties:
+        nationality:
+          type: string
+        religion:
+          type: string
+
+output_schema:
+  type: object
+  required: [categories, keywords]
+  properties:
+    categories:
+      type: array
+      items:
+        type: string
+      description: "分类名称列表，最多2个"
+      max_items: 2
+    keywords:
+      type: array
+      items:
+        type: string
+      description: "关键字列表，最多10个"
+      max_items: 10
+
+system_prompt: "你是一个专业的新闻分类助手，负责准确识别新闻的分类和提取关键字。"
+
+prompt_template: |
+  请根据以下新闻的标题和描述，判断它属于哪个分类，并提取10个关键字。
+
+  可用分类：{categories}
+
+  标题：{title}
+
+  描述：{content}
+
+  用户信息：
+  - 国籍：{context[nationality]}
+  - 宗教：{context[religion]}
+
+  要求：
+  1. 仔细阅读新闻内容，理解其主题领域
+  2. 从可用分类中选择1-2个最匹配的分类
+  3. 提取10个最能代表新闻内容的关键字
+  4. 严格按照JSON格式返回
+
+model_params:
+  temperature: 0.7
+  max_tokens: 2048
+  timeout: 120
+
+retry:
+  max_retries: 3
+  backoff_base: 1.5
+  max_delay: 30.0
+  retry_on:
+    - timeout
+    - connection
+    - json_parse
+
+post_process:
+  - type: validate_categories
+  - type: keyword_fallback

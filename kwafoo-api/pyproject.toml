@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kwafoo-api"
+version = "1.0.0"
+description = "新闻聚合系统API服务 - FastAPI后端"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "kwafoo-data-processor",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+kwafoo-api = "kwafoo_api.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

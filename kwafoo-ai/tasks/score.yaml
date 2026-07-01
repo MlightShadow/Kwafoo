@@ -1,0 +1,79 @@
+name: score
+version: "1.0"
+description: "新闻综合评分 - 从关联度、重要程度、来源分三个维度评分"
+
+input_schema:
+  type: object
+  required: [title, summary]
+  properties:
+    title:
+      type: string
+      description: "新闻标题"
+    summary:
+      type: string
+      description: "新闻摘要"
+    content:
+      type: string
+      description: "新闻正文片段"
+      max_length: 1000
+    category:
+      type: string
+      description: "新闻分类"
+    source_score:
+      type: number
+      description: "来源基准分（0-100）"
+    interest_keywords:
+      type: array
+      items:
+        type: string
+      description: "用户兴趣关键字"
+
+output_schema:
+  type: object
+  required: [relevance, importance, source_score]
+  properties:
+    relevance:
+      type: number
+      minimum: 0
+      maximum: 100
+      description: "关联度评分"
+    importance:
+      type: number
+      minimum: 0
+      maximum: 100
+      description: "重要程度评分"
+    source_score:
+      type: number
+      minimum: 0
+      maximum: 100
+      description: "来源评分"
+    reason:
+      type: string
+      description: "评分综合理由"
+
+system_prompt: "你是一个专业的新闻分析师，擅长对新闻进行多维度评分。"
+
+prompt_template: |
+  请对以下新闻进行多维度评分：
+
+  标题：{title}
+  摘要：{summary}
+  分类：{category}
+
+  用户兴趣关键字：{interest_keywords}
+
+  评分标准：
+  1. 关联度（0-100）：新闻与用户兴趣的匹配程度
+  2. 重要程度（0-100）：新闻的社会影响力
+  3. 来源分：使用给定的来源基准分 {source_score}
+
+  要求返回JSON格式。
+
+model_params:
+  temperature: 0.3
+  max_tokens: 1024
+  timeout: 120
+
+retry:
+  max_retries: 2
+  backoff_base: 2.0

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kwafoo-crawler"
+version = "1.0.0"
+description = "独立新闻爬虫模块 - 数据抓取与存储"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.28",
+    "feedparser>=6.0",
+    "beautifulsoup4>=4.11",
+    "Pillow>=9.0",
+]
+
+[project.scripts]
+kwafoo-crawler = "kwafoo_crawler.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

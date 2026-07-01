@@ -1,0 +1,46 @@
+# kwafoo-ai 任务配置模板
+# 复制此文件并修改即可创建自定义AI调用任务
+#
+# 使用方法：
+#   1. 复制此文件到 tasks/ 目录，重命名为你需要的任务名
+#   2. 修改 name、input_schema、output_schema、prompt_template
+#   3. 直接使用: ai.execute("your_task_name", ...)
+
+name: your_task_name
+version: "1.0"
+description: "你的任务描述"
+
+input_schema:
+  type: object
+  required: [your_input_param]
+  properties:
+    your_input_param:
+      type: string
+      description: "输入参数描述"
+
+output_schema:
+  type: object
+  required: [your_output_field]
+  properties:
+    your_output_field:
+      type: string
+      description: "输出字段描述"
+
+system_prompt: "你是一个专业的助手。"
+
+prompt_template: |
+  请处理以下输入：
+
+  {your_input_param}
+
+  返回JSON格式。
+
+model_params:
+  temperature: 0.7
+  max_tokens: 2048
+  timeout: 120
+
+retry:
+  max_retries: 3
+  backoff_base: 1.5
+  max_delay: 30.0

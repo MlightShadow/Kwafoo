@@ -1,0 +1,56 @@
+[crawler]
+max_workers = 20
+user_agent = "Kwafoo-Crawler/1.0"
+request_timeout = 30
+
+[network]
+enable_proxy = false
+proxy_url = ""
+
+[[sources.rss]]
+name = "36氪"
+url = "https://36kr.com/feed"
+enabled = true
+fetch_days = 1
+score = 100
+
+[[sources.rss]]
+name = "少数派"
+url = "https://sspai.com/feed"
+enabled = true
+fetch_days = 1
+score = 100
+
+[[sources.rss]]
+name = "IT之家"
+url = "https://www.ithome.com/rss/"
+enabled = true
+fetch_days = 1
+score = 100
+
+[[sources.rss]]
+name = "游戏研究社"
+url = "https://www.yystv.cn/rss/feed"
+enabled = true
+fetch_days = 1
+score = 100
+
+[[sources.rss]]
+name = "NewsHacker"
+url = "https://api.newshacker.me/rss"
+enabled = true
+fetch_days = 1
+score = 100
+
+[[sources.web]]
+name = ""
+url = ""
+enabled = false
+fetch_days = 1
+selectors = { container = "div.news-list", title = "h2.title", link = "a" }
+
+[storage]
+backend = "sqlite"
+sqlite_path = "data/crawler.db"
+file_path = "data/raw_news/"
+file_format = "json"

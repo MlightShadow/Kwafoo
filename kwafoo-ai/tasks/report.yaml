@@ -1,0 +1,68 @@
+name: report
+version: "1.0"
+description: "新闻报告生成 - 生成日报/周报/月报"
+
+input_schema:
+  type: object
+  required: [news_list, report_type]
+  properties:
+    news_list:
+      type: array
+      description: "新闻列表"
+      items:
+        type: object
+        properties:
+          title:
+            type: string
+          summary:
+            type: string
+          category:
+            type: string
+          score:
+            type: number
+    report_type:
+      type: string
+      description: "报告类型: daily/weekly/monthly"
+      enum: [daily, weekly, monthly]
+    custom_instruction:
+      type: string
+      description: "自定义报告指令"
+      default: ""
+
+output_schema:
+  type: object
+  required: [report]
+  properties:
+    report:
+      type: string
+      description: "报告内容"
+    highlights:
+      type: array
+      items:
+        type: string
+      description: "重点新闻摘要"
+
+system_prompt: "你是一个专业的新闻分析报告生成助手。"
+
+prompt_template: |
+  请根据以下新闻列表生成一份{report_type}新闻分析报告：
+
+  新闻列表：
+  {news_list}
+
+  自定义指令：{custom_instruction}
+
+  要求：
+  1. 报告要有明确的结构（概述、分类分析、重点新闻、总结）
+  2. 语言专业、简洁
+  3. 必须返回JSON格式
+
+model_params:
+  temperature: 0.7
+  max_tokens: 4096
+  timeout: 180
+
+retry:
+  max_retries: 2
+  backoff_base: 2.0
+  max_delay: 60.0

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kwafoo-data-processor"
+version = "1.0.0"
+description = "数据处理核心 - 新闻后处理与任务调度"
+requires-python = ">=3.10"
+dependencies = [
+    "kwafoo-ai",
+    "kwafoo-crawler",
+    "apscheduler>=3.10",
+    "PyYAML>=6.0",
+]
+
+[project.scripts]
+kwafoo-processor = "kwafoo_data_processor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kwafoo-ai"
+version = "1.0.0"
+description = "统一AI调用引擎 - 配置驱动的AI任务执行框架"
+requires-python = ">=3.10"
+dependencies = [
+    "litellm>=1.0",
+    "httpx",
+    "pyyaml>=6.0",
+    "jsonschema>=4.0",
+]
+
+[project.scripts]
+kwafoo-ai = "kwafoo_ai.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

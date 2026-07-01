@@ -1,0 +1,17 @@
+[processor]
+db_path = "data/crawler.db"
+batch_size = 10
+pipeline_interval = 3600
+max_scoring_retries = 3
+crawler_config_path = "config/crawler_config.toml"
+ai_config_path = "config/ai_config.toml"
+
+[scheduler]
+enable_crawl = true
+crawl_interval = 3600
+enable_process = true
+process_interval = 600
+enable_daily_report = false
+daily_report_cron = "0 8 * * *"
+enable_weekly_report = false
+weekly_report_cron = "0 9 * * 0"
